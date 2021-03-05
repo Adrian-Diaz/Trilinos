@@ -201,6 +201,7 @@ Epetra_CrsMatrix::Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_Map& rowMa
   InitializeDefaults();
   Allocate();
 }
+
 //==============================================================================
 Epetra_CrsMatrix::Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_CrsGraph& graph)
   : Epetra_DistObject(graph.Map(), "Epetra::CrsMatrix"),
@@ -228,6 +229,39 @@ Epetra_CrsMatrix::Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_CrsGraph& 
   constructedWithFilledGraph_ = graph.Filled();
   InitializeDefaults();
   Allocate();
+}
+
+//==============================================================================
+Epetra_CrsMatrix::Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_CrsGraph& graph,
+           double* external_values)
+  : Epetra_DistObject(graph.Map(), "Epetra::CrsMatrix"),
+    Epetra_CompObject(),
+    Epetra_BLAS(),
+    Graph_(graph),
+    external_values_(external_values),
+    Allocated_(false),
+    StaticGraph_(true),
+    UseTranspose_(false),
+    constructedWithFilledGraph_(false),
+    matrixFillCompleteCalled_(false),
+    StorageOptimized_(false),
+    Values_(0),
+    Values_alloc_lengths_(0),
+    All_Values_(0),
+    NormInf_(0.0),
+    NormOne_(0.0),
+    NormFrob_(0.0),
+    NumMyRows_(graph.NumMyRows()),
+    ImportVector_(0),
+    ExportVector_(0),
+    CV_(CV),
+    squareFillCompleteCalled_(false)
+{
+  external_pointer_ = true;
+  constructedWithFilledGraph_ = graph.Filled();
+  InitializeDefaults();
+  Allocate();
+  
 }
 
 //==============================================================================
@@ -344,33 +378,40 @@ int Epetra_CrsMatrix::Allocate() {
   }
 
   // Allocate and initialize entries if we are copying data
-  if (CV_==Copy) {
+  if (CV_==Copy||external_pointer_) {
     if (Graph().StaticProfile() || Graph().StorageOptimized()) {
       int numMyNonzeros = Graph().NumMyEntries();
-      if (numMyNonzeros>0) All_Values_ = new double[numMyNonzeros];
+      if (numMyNonzeros>0&&!external_pointer_) All_Values_ = new double[numMyNonzeros];
+      if (external_pointer_) All_Values_ = external_values_;
       if(Graph().StorageOptimized()){
         StorageOptimized_ = true;
       }
     }
-    double * all_values = All_Values_;
-    for (i=0; i<NumMyRows_; i++) {
-      int NumAllocatedEntries = Graph().NumAllocatedMyIndices(i);
+    if(external_pointer_){
+      // Delete unneeded storage
+      delete [] Values_; Values_=0;
+    }
+    else{
+      double * all_values = All_Values_;
+      for (i=0; i<NumMyRows_; i++) {
+        int NumAllocatedEntries = Graph().NumAllocatedMyIndices(i);
 
-      if (NumAllocatedEntries > 0) {
-        if (Graph().StaticProfile() || Graph().StorageOptimized()) {
-          Values_[i] = all_values;
-          all_values += NumAllocatedEntries;
+        if (NumAllocatedEntries > 0) {
+          if (Graph().StaticProfile() || Graph().StorageOptimized()) {
+            Values_[i] = all_values;
+            all_values += NumAllocatedEntries;
+          }
+          else {
+            Values_[i] = new double[NumAllocatedEntries];
+            Values_alloc_lengths_[i] = NumAllocatedEntries;
+          }
         }
-        else {
-          Values_[i] = new double[NumAllocatedEntries];
-          Values_alloc_lengths_[i] = NumAllocatedEntries;
-        }
+        else
+          Values_[i] = 0;
+
+        for(j=0; j< NumAllocatedEntries; j++)
+          Values_[i][j] = 0.0; // Fill values with zero
       }
-      else
-        Values_[i] = 0;
-
-      for(j=0; j< NumAllocatedEntries; j++)
-        Values_[i][j] = 0.0; // Fill values with zero
     }
   }
   else {
@@ -396,7 +437,7 @@ void Epetra_CrsMatrix::DeleteMemory()
   int i;
 
   if (CV_==Copy) {
-    if (All_Values_!=0)
+    if (All_Values_!=0&&!external_pointer_)
       delete [] All_Values_;
     else if (Values_!=0)
       for (i=0; i<NumMyRows_; i++)

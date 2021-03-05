@@ -244,6 +244,14 @@ class EPETRA_LIB_DLL_EXPORT Epetra_CrsMatrix: public Epetra_DistObject, public E
     \param Graph - (In) A Epetra_CrsGraph object, constructed directly or extracted from another Epetra matrix object.
   */
 
+  Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_CrsGraph& Graph, double* external_values);
+
+  //! Construct a matrix using an existing Epetra_CrsGraph object and a continguous array of values.
+  /*! Allows the structure and values from another matrix storage to be used for this matrix.
+    \param CV - (In) An Epetra_DataAccess enumerated type set to Copy or View.
+    \param Graph - (In) A Epetra_CrsGraph object, constructed directly or extracted from another Epetra matrix object.
+  */
+
   Epetra_CrsMatrix(Epetra_DataAccess CV, const Epetra_CrsGraph& Graph);
 
 //! Epetra CrsMatrix constructor that also fuses Import and FillComplete().
@@ -1657,6 +1665,8 @@ or if the number of entries in this row exceed the Length parameter.
   bool constructedWithFilledGraph_;
   bool matrixFillCompleteCalled_;
   bool StorageOptimized_;
+  bool external_pointer_ = false;
+  double* external_values_;
 
   double** Values_;
   int* Values_alloc_lengths_;

@@ -251,6 +251,15 @@ Epetra_CrsGraphData::~Epetra_CrsGraphData() {
   Filled_ = false;      // they're about to go out of scope, after all
   Allocated_ = false;
 
+  //set Graph data dense array pointer members to NULL to avoid having the arrays they pointed to deleted, if the information was externally
+  //provided, once the dense array object destructors are called
+  if(external_pointer_){
+  int * numIndicesPerRow = NumIndicesPerRow_.Values();
+  int * IndexOffset = IndexOffset_.Values();
+  IndexOffset = NULL;
+  numIndicesPerRow = NULL;
+  }
+
   //cout << "--CRSGD destroyed, addr: " << this << std::endl; //DATA_DEBUG
 }
 

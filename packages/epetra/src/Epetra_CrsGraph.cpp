@@ -74,6 +74,23 @@ Epetra_CrsGraph::Epetra_CrsGraph(Epetra_DataAccess CV,
 
 //==============================================================================
 Epetra_CrsGraph::Epetra_CrsGraph(Epetra_DataAccess CV,
+        const Epetra_BlockMap& rowMap, int* numIndicesPerRow, int external_nnz,
+        int *external_values, int *external_offsets, bool staticProfile)
+  : Epetra_DistObject(rowMap, "Epetra::CrsGraph"),
+    CrsGraphData_(new Epetra_CrsGraphData(CV, rowMap, staticProfile)),
+    external_pointer_(true),
+    external_nnz_(external_nnz)
+{
+  external_values_ = external_values;
+  external_offsets_ = external_offsets;
+  external_strides_ = numIndicesPerRow;
+  CrsGraphData_->external_pointer_ = true;
+  Allocate(numIndicesPerRow, 1, staticProfile);
+  CrsGraphData_->StorageOptimized_ = true;
+}
+
+//==============================================================================
+Epetra_CrsGraph::Epetra_CrsGraph(Epetra_DataAccess CV,
         const Epetra_BlockMap& rowMap,
         int numIndicesPerRow, bool staticProfile)
   : Epetra_DistObject(rowMap, "Epetra::CrsGraph"),
@@ -130,6 +147,21 @@ int Epetra_CrsGraph::TAllocate(const int* numIndicesPerRow, int Inc, bool static
   // NumIndicesPerRow_ will be reused implicitly for the IndexOffset_ array.
   // Although a bit fragile, for users who care about efficient memory allocation,
   // the time and memory fragmentation are important: Mike Heroux Feb 2005.
+  
+  
+  if(external_pointer_){
+    int * numIndicesPerRow = CrsGraphData_->NumIndicesPerRow_.Values();
+    numIndicesPerRow = external_strides_;
+    int * IndexOffset = CrsGraphData_->IndexOffset_.Values();
+    IndexOffset = external_offsets_;
+    CrsGraphData_->NumMyEntries_ = external_nnz_;
+    Epetra_CrsGraphData::IndexData<int_type>& Data = CrsGraphData_->Data<int_type>();
+    int_type * All_indices = Data.All_Indices_.Values();
+    All_indices = (int_type*) external_values_;
+    Data.index_external_pointer_ = true;
+  }
+  
+  if(!external_pointer_){
   int errorcode = CrsGraphData_->NumIndicesPerRow_.Size(numMyBlockRows+1);
   if(errorcode != 0)
     throw ReportError("Error with NumIndicesPerRow_ allocation.", -99);
@@ -193,7 +225,7 @@ int Epetra_CrsGraph::TAllocate(const int* numIndicesPerRow, int Inc, bool static
       Data.Indices_[i] = 0;
     }
   }
-
+  }
   SetAllocated(true);
 
   return(0);

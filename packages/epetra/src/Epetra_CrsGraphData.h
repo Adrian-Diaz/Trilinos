@@ -206,6 +206,8 @@ class EPETRA_LIB_DLL_EXPORT Epetra_CrsGraphData : public Epetra_Data {
   Epetra_IntSerialDenseVector IndexOffset_;
   Epetra_DataAccess CV_;
 
+  bool external_pointer_ = false;
+
   template<typename int_type>
   struct IndexData;
 
@@ -227,6 +229,7 @@ struct Epetra_CrsGraphData::IndexData<long long>
   std::vector< EntriesInOneRow<long long> > SortedEntries_;
   long long* TempColIndices_;
   Epetra_LongLongSerialDenseVector All_Indices_;
+  bool index_external_pointer_ = false;
 
   IndexData(int NumMyBlockRows, bool AllocSorted)
     :
@@ -263,7 +266,8 @@ struct Epetra_CrsGraphData::IndexData<long long>
 
     delete [] TempColIndices_;
     TempColIndices_ = 0;
-
+    
+    if(!index_external_pointer_)
     All_Indices_.Resize(0);
   }
 };
@@ -278,6 +282,7 @@ struct Epetra_CrsGraphData::IndexData<int>
   int* TempColIndices_;
   Epetra_IntSerialDenseVector All_Indices_;
   Epetra_IntSerialDenseVector All_IndicesPlus1_;
+  bool index_external_pointer_ = false;
 
   IndexData(int NumMyBlockRows, bool AllocSorted)
     :
@@ -311,8 +316,10 @@ struct Epetra_CrsGraphData::IndexData<int>
 
     delete [] TempColIndices_;
     TempColIndices_ = 0;
-
+    
+    if(!index_external_pointer_)
     All_Indices_.Resize(0);
+    //if(!index_external_pointer_)
     All_IndicesPlus1_.Resize(0);
   }
 };

@@ -247,6 +247,28 @@ class EPETRA_LIB_DLL_EXPORT Epetra_CrsGraph: public Epetra_DistObject {
   */
   Epetra_CrsGraph(Epetra_DataAccess CV, const Epetra_BlockMap& RowMap, int NumIndicesPerRow, bool StaticProfile = false);
 
+  //! Epetra_CrsGraph constuctor with variable number of indices per row and pre-existing values.
+  /*! Creates a Epetra_CrsGraph object and does not allocate storage for the graph values.
+
+    \param CV - (In) A Epetra_DataAccess enumerated type set to Copy or View.
+    \param RowMap - (In) An Epetra_BlockMap (or Epetra_Map or Epetra_LocalMap) listing the rows that this
+     processor will contribute to.
+    \param ColMap - (In) An Epetra_BlockMap (or Epetra_Map or Epetra_LocalMap) listing the columns that this
+     processor will contribute to.
+    \param NumIndicesPerRow - (In) An integer array of length NumMyRows
+     such that NumIndicesPerRow[i] indicates the (approximate if StaticProfile=false) number of entries in the ith row.
+    \param external_values - (In) A double array of graph indices being passed to define the CrsGraph
+    \param external_offsets - (In) An array of integers such that all_values[external_offsets[i]] points to the beginning
+     of the ith row of the 1D compressed graph storage
+    \param StaticProfile - (In) Optional argument that indicates whether or not NumIndicesPerRow should be interpreted as an exact
+           count of nonzeros, or should be used as an approximation.  By default this value is false, allowing the profile to be determined
+           dynamically.  If the user sets it to true, then the memory allocation for the Epetra_CrsGraph object will be done in one large
+     block, saving on memory fragmentation and generally improving the performance of matrix multiplication and solve kernels.
+  */
+  Epetra_CrsGraph(Epetra_DataAccess CV, const Epetra_BlockMap& RowMap,
+      int* NumIndicesPerRow, int external_nnz,
+      int* external_values, int* external_offsets, bool StaticProfile = false);
+
   //! Epetra_CrsGraph constuctor with variable number of indices per row.
   /*! Creates a Epetra_CrsGraph object and allocates storage.
 
@@ -1213,6 +1235,11 @@ class EPETRA_LIB_DLL_EXPORT Epetra_CrsGraph: public Epetra_DistObject {
   void CleanupData();
 
   Epetra_CrsGraphData* CrsGraphData_;
+  int* external_values_;
+  int *external_offsets_;
+  int *external_strides_;
+  int external_nnz_;
+  bool external_pointer_;
 
 private:
 
