@@ -250,7 +250,7 @@ struct DefaultComparator
 //Good diagram of the algorithm at https://en.wikipedia.org/wiki/Bitonic_sorter
 template<typename Ordinal, typename ValueType, typename TeamMember, typename Comparator = DefaultComparator<ValueType>>
 KOKKOS_INLINE_FUNCTION void
-TeamBitonicSort(ValueType* values, Ordinal n, const TeamMember mem, const Comparator& comp = Comparator())
+TeamBitonicSort(ValueType* values, Ordinal n, const TeamMember mem)
 {
   //Algorithm only works on power-of-two input size only.
   //If n is not a power-of-two, will implicitly pretend
@@ -277,6 +277,7 @@ TeamBitonicSort(ValueType* values, Ordinal n, const TeamMember mem, const Compar
           Ordinal boxStart = boxID << (1 + i - j);  //boxID * boxSize
           Ordinal boxOffset = t - (boxStart >> 1);  //t - boxID * boxSize / 2;
           Ordinal elem1 = boxStart + boxOffset;
+          Comparator comp;
           if(j == 0)
           {
             //first phase (brown box): within a block, compare with the opposite value in the box
@@ -315,7 +316,7 @@ TeamBitonicSort(ValueType* values, Ordinal n, const TeamMember mem, const Compar
 //Sort "values", while applying the same swaps to "perm" 
 template<typename Ordinal, typename ValueType, typename PermType, typename TeamMember, typename Comparator = DefaultComparator<ValueType>>
 KOKKOS_INLINE_FUNCTION void
-TeamBitonicSort2(ValueType* values, PermType* perm, Ordinal n, const TeamMember mem, const Comparator& comp = Comparator())
+TeamBitonicSort2(ValueType* values, PermType* perm, Ordinal n, const TeamMember mem)
 {
   //Algorithm only works on power-of-two input size only.
   //If n is not a power-of-two, will implicitly pretend
@@ -342,6 +343,7 @@ TeamBitonicSort2(ValueType* values, PermType* perm, Ordinal n, const TeamMember 
           Ordinal boxStart = boxID << (1 + i - j);  //boxID * boxSize
           Ordinal boxOffset = t - (boxStart >> 1);  //t - boxID * boxSize / 2;
           Ordinal elem1 = boxStart + boxOffset;
+          Comparator comp;
           if(j == 0)
           {
             //first phase (brown box): within a block, compare with the opposite value in the box
@@ -387,20 +389,19 @@ TeamBitonicSort2(ValueType* values, PermType* perm, Ordinal n, const TeamMember 
 template<typename View, typename Ordinal, typename TeamMember, typename Comparator>
 struct BitonicSingleTeamFunctor
 {
-  BitonicSingleTeamFunctor(View& v_, const Comparator& comp_) : v(v_), comp(comp_) {}
+  BitonicSingleTeamFunctor(View& v_) : v(v_) {}
   KOKKOS_INLINE_FUNCTION void operator()(const TeamMember t) const
   {
-    TeamBitonicSort<Ordinal, typename View::value_type, TeamMember, Comparator>(v.data(), v.extent(0), t, comp);
+    TeamBitonicSort<Ordinal, typename View::value_type, TeamMember, Comparator>(v.data(), v.extent(0), t);
   };
   View v;
-  Comparator comp;
 };
 
 //Functor that sorts equally sized chunks on each team
 template<typename View, typename Ordinal, typename TeamMember, typename Comparator>
 struct BitonicChunkFunctor
 {
-  BitonicChunkFunctor(View& v_, const Comparator& comp_, Ordinal chunkSize_) : v(v_), comp(comp_), chunkSize(chunkSize_) {}
+  BitonicChunkFunctor(View& v_, Ordinal chunkSize_) : v(v_), chunkSize(chunkSize_) {}
   KOKKOS_INLINE_FUNCTION void operator()(const TeamMember t) const
   {
     Ordinal chunk = t.league_rank();
@@ -408,10 +409,9 @@ struct BitonicChunkFunctor
     Ordinal n = chunkSize;
     if(chunkStart + n > Ordinal(v.extent(0)))
       n = v.extent(0) - chunkStart;
-    TeamBitonicSort<Ordinal, typename View::value_type, TeamMember, Comparator>(v.data() + chunkStart, n, t, comp);
+    TeamBitonicSort<Ordinal, typename View::value_type, TeamMember, Comparator>(v.data() + chunkStart, n, t);
   };
   View v;
-  Comparator comp;
   Ordinal chunkSize;
 };
 
@@ -420,8 +420,8 @@ template<typename View, typename Ordinal, typename TeamMember, typename Comparat
 struct BitonicPhase1Functor
 {
   typedef typename View::value_type Value;
-  BitonicPhase1Functor(View& v_, const Comparator& comp_, Ordinal boxSize_, Ordinal teamsPerBox_)
-    : v(v_), comp(comp_), boxSize(boxSize_), teamsPerBox(teamsPerBox_)
+  BitonicPhase1Functor(View& v_, Ordinal boxSize_, Ordinal teamsPerBox_)
+    : v(v_), boxSize(boxSize_), teamsPerBox(teamsPerBox_)
   {}
   KOKKOS_INLINE_FUNCTION void operator()(const TeamMember t) const
   {
@@ -431,8 +431,9 @@ struct BitonicPhase1Functor
     Ordinal workStart = work * (t.league_rank() % teamsPerBox);
     Ordinal workReflect = boxSize - workStart - 1;
     Kokkos::parallel_for(Kokkos::TeamThreadRange(t, work),
-      [&](const Ordinal i)
+      [=](const Ordinal i)
       {
+        Comparator comp;
         Ordinal elem1 = boxStart + workStart + i;
         Ordinal elem2 = boxStart + workReflect - i;
         if(elem2 < Ordinal(v.extent(0)))
@@ -447,7 +448,6 @@ struct BitonicPhase1Functor
       });
   };
   View v;
-  Comparator comp;
   Ordinal boxSize;
   Ordinal teamsPerBox;
 };
@@ -457,8 +457,8 @@ template<typename View, typename Ordinal, typename TeamMember, typename Comparat
 struct BitonicPhase2Functor
 {
   typedef typename View::value_type Value;
-  BitonicPhase2Functor(View& v_, const Comparator& comp_, Ordinal boxSize_, Ordinal teamsPerBox_)
-    : v(v_), comp(comp_), boxSize(boxSize_), teamsPerBox(teamsPerBox_)
+  BitonicPhase2Functor(View& v_, Ordinal boxSize_, Ordinal teamsPerBox_)
+    : v(v_), boxSize(boxSize_), teamsPerBox(teamsPerBox_)
   {}
   KOKKOS_INLINE_FUNCTION void operator()(const TeamMember t) const
   {
@@ -470,8 +470,9 @@ struct BitonicPhase2Functor
     Ordinal work = boxSize / teamsPerBox / 2;
     Ordinal workStart = boxStart + work * (t.league_rank() % teamsPerBox);
     Ordinal jump = boxSize / 2;
+    Comparator comp;
     Kokkos::parallel_for(Kokkos::TeamThreadRange(t, work),
-      [&](const Ordinal i)
+      [=](const Ordinal i)
       {
         Ordinal elem1 = workStart + i;
         Ordinal elem2 = workStart + jump + i;
@@ -495,7 +496,7 @@ struct BitonicPhase2Functor
         Ordinal logSubBoxSize = logBoxSize - subLevel;
         Ordinal subBoxSize = Ordinal(1) << logSubBoxSize;
         Kokkos::parallel_for(Kokkos::TeamThreadRange(t, work),
-          [&](const Ordinal i)
+          [=](const Ordinal i)
           {
             Ordinal globalThread = i + t.league_rank() * work;
             Ordinal subBox = globalThread >> (logSubBoxSize - 1);
@@ -518,7 +519,6 @@ struct BitonicPhase2Functor
     }
   };
   View v;
-  Comparator comp;
   Ordinal boxSize;
   Ordinal teamsPerBox;
 };
@@ -531,16 +531,16 @@ struct BitonicPhase2Functor
 //and an arbitrary device-compatible comparison operator (provided through operator() of Comparator)
 //If comparator is void, use operator< (which should only be used for primitives)
 template<typename View, typename ExecSpace, typename Ordinal, typename Comparator = DefaultComparator<typename View::value_type>>
-void bitonicSort(View v, const Comparator& comp = Comparator())
+void bitonicSort(View v)
 {
   typedef Kokkos::TeamPolicy<ExecSpace> team_policy;
   typedef typename team_policy::member_type team_member;
   Ordinal n = v.extent(0);
   //If n is small, just sort on a single team
-  if(n <= Ordinal(1) << 12)
+  if(n <= Ordinal(1) << 16)
   {
     Kokkos::parallel_for(team_policy(1, Kokkos::AUTO()),
-        BitonicSingleTeamFunctor<View, Ordinal, team_member, Comparator>(v, comp));
+        BitonicSingleTeamFunctor<View, Ordinal, team_member, Comparator>(v));
   }
   else
   {
@@ -552,16 +552,16 @@ void bitonicSort(View v, const Comparator& comp = Comparator())
     Ordinal numTeams = npot / chunkSize;
     //First, sort within teams
     Kokkos::parallel_for(team_policy(numTeams, Kokkos::AUTO()),
-        BitonicChunkFunctor<View, Ordinal, team_member, Comparator>(v, comp, chunkSize));
+        BitonicChunkFunctor<View, Ordinal, team_member, Comparator>(v, chunkSize));
     for(int teamsPerBox = 2; teamsPerBox <= npot / chunkSize; teamsPerBox *= 2)
     {
       Ordinal boxSize = teamsPerBox * chunkSize;
       Kokkos::parallel_for(team_policy(numTeams, Kokkos::AUTO()),
-          BitonicPhase1Functor<View, Ordinal, team_member, Comparator>(v, comp, boxSize, teamsPerBox));
+          BitonicPhase1Functor<View, Ordinal, team_member, Comparator>(v, boxSize, teamsPerBox));
       for(int boxDiv = 1; teamsPerBox >> boxDiv; boxDiv++)
       {
         Kokkos::parallel_for(team_policy(numTeams, Kokkos::AUTO()),
-            BitonicPhase2Functor<View, Ordinal, team_member, Comparator>(v, comp, boxSize >> boxDiv, teamsPerBox >> boxDiv));
+            BitonicPhase2Functor<View, Ordinal, team_member, Comparator>(v, boxSize >> boxDiv, teamsPerBox >> boxDiv));
       }
     }
   }

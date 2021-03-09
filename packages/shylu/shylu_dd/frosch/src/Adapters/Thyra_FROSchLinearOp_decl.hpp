@@ -39,8 +39,8 @@
 // ************************************************************************
 //@HEADER
 
-#ifndef _THYRA_FROSCH_LINEAR_OP_DECL_HPP
-#define _THYRA_FROSCH_LINEAR_OP_DECL_HPP
+#ifndef THYRA_FROSCH_LINEAR_OP_DECL_HPP
+#define THYRA_FROSCH_LINEAR_OP_DECL_HPP
 
 #include <ShyLU_DDFROSch_config.h>
 
@@ -98,17 +98,14 @@
 
 namespace Thyra {
 
-    using namespace FROSch;
     using namespace Teuchos;
     using namespace Thyra;
     using namespace Xpetra;
 
     /** \brief Concrete Thyra::LinearOpBase subclass for Operator.**/
-    template <class SC = double,
-              class LO = int,
-              class GO = DefaultGlobalOrdinal,
-              class NO = KokkosClassic::DefaultNode::DefaultNodeType>
-    class FROSchLinearOp : virtual public LinearOpDefaultBase<SC> {
+    template <class Scalar, class LocalOrdinal, class GlobalOrdinal=LocalOrdinal,
+    class Node=KokkosClassic::DefaultNode::DefaultNodeType>
+    class FROSchLinearOp : virtual public LinearOpDefaultBase<Scalar> {
         public:
 
         /** \name Constructors/initializers. */
@@ -118,24 +115,24 @@ namespace Thyra {
         FROSchLinearOp();
 
         /** \brief Initialize. */
-        void initialize(const RCP<const VectorSpaceBase<SC> > &rangeSpace,
-                        const RCP<const VectorSpaceBase<SC> > &domainSpace,
-                        const RCP<Operator<SC,LO,GO,NO> > &xpetraOperator,
+        void initialize(const RCP<const VectorSpaceBase<Scalar> > &rangeSpace,
+                        const RCP<const VectorSpaceBase<Scalar> > &domainSpace,
+                        const RCP<Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > &xpetraOperator,
                         bool bIsEpetra,
                         bool bIsTpetra);
 
         /** \brief Initialize. */
-        void constInitialize(const RCP<const VectorSpaceBase<SC> > &rangeSpace,
-                             const RCP<const VectorSpaceBase<SC> > &domainSpace,
-                             const RCP<const Operator<SC,LO,GO,NO> > &xpetraOperator,
+        void constInitialize(const RCP<const VectorSpaceBase<Scalar> > &rangeSpace,
+                             const RCP<const VectorSpaceBase<Scalar> > &domainSpace,
+                             const RCP<const Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > &xpetraOperator,
                              bool bIsEpetra,
                              bool bIsTpetra);
 
         /** \brief Get embedded non-const Operator. */
-        RCP<Operator<SC,LO,GO,NO> > getXpetraOperator();
+        RCP<Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > getXpetraOperator();
 
         /** \brief Get embedded const Operator. */
-        RCP<const Operator<SC,LO,GO,NO> > getConstXpetraOperator() const;
+        RCP<const Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > getConstXpetraOperator() const;
 
         //@}
 
@@ -143,10 +140,10 @@ namespace Thyra {
         //@{
 
         /** \brief . */
-        RCP<const VectorSpaceBase<SC> > range() const;
+        RCP<const VectorSpaceBase<Scalar> > range() const;
 
         /** \brief . */
-        RCP<const VectorSpaceBase<SC> > domain() const;
+        RCP<const VectorSpaceBase<Scalar> > domain() const;
 
         //@}
 
@@ -160,31 +157,31 @@ namespace Thyra {
 
         /** \brief . */
         void applyImpl(const EOpTransp M_trans,
-                       const MultiVectorBase<SC> &X_in,
-                       const Ptr<MultiVectorBase<SC> > &Y_inout,
-                       const SC alpha,
-                       const SC beta
+                       const MultiVectorBase<Scalar> &X_in,
+                       const Ptr<MultiVectorBase<Scalar> > &Y_inout,
+                       const Scalar alpha,
+                       const Scalar beta
                        ) const;
 
         //@}
 
         private:
 
-        RCP<const VectorSpaceBase<SC> >
+        RCP<const VectorSpaceBase<Scalar> >
         rangeSpace_;
 
-        RCP<const VectorSpaceBase<SC> >
+        RCP<const VectorSpaceBase<Scalar> >
         domainSpace_;
 
 
         bool bIsEpetra_;
         bool bIsTpetra_;
-        ConstNonconstObjectContainer<Operator<SC,LO,GO,NO> >
+        ConstNonconstObjectContainer<Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> >
         xpetraOperator_;
 
         template<class XpetraOperator_t>
-        void initializeImpl(const RCP<const VectorSpaceBase<SC> > &rangeSpace,
-                            const RCP<const VectorSpaceBase<SC> > &domainSpace,
+        void initializeImpl(const RCP<const VectorSpaceBase<Scalar> > &rangeSpace,
+                            const RCP<const VectorSpaceBase<Scalar> > &domainSpace,
                             const RCP<XpetraOperator_t> &xpetraOperator,
                             bool bIsEpetra,
                             bool bIsTpetra);
@@ -195,15 +192,15 @@ namespace Thyra {
      *
      * \relates XpetraLinearOp
      */
-    template <class SC, class LO, class GO, class NO>
-    RCP<FROSchLinearOp<SC,LO,GO,NO> > fROSchLinearOp(const RCP<const VectorSpaceBase<SC> > &rangeSpace,
-                                                                                   const RCP<const VectorSpaceBase<SC> > &domainSpace,
-                                                                                   const RCP<Operator<SC,LO,GO,NO> > &xpetraOperator,
+    template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+    RCP<FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node> > fROSchLinearOp(const RCP<const VectorSpaceBase<Scalar> > &rangeSpace,
+                                                                                   const RCP<const VectorSpaceBase<Scalar> > &domainSpace,
+                                                                                   const RCP<Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > &xpetraOperator,
                                                                                    bool bIsEpetra,
                                                                                    bool bIsTpetra)
     {
-        const RCP<FROSchLinearOp<SC,LO,GO,NO> > op =
-        rcp(new FROSchLinearOp<SC,LO,GO,NO>);
+        const RCP<FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node> > op =
+        rcp(new FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node>);
         op->initialize(rangeSpace,domainSpace,xpetraOperator,bIsEpetra,bIsTpetra);
         return op;
     }
@@ -213,15 +210,15 @@ namespace Thyra {
      *
      * \relates XpetraLinearOp
      */
-    template <class SC, class LO, class GO, class NO>
-    RCP<const FROSchLinearOp<SC,LO,GO,NO> > constFROSchLinearOp(const RCP<const VectorSpaceBase<SC> > &rangeSpace,
-                                                                                              const RCP<const VectorSpaceBase<SC> > &domainSpace,
-                                                                                              const RCP<const Operator<SC,LO,GO,NO> > &xpetraOperator,
+    template <class Scalar, class LocalOrdinal, class GlobalOrdinal, class Node>
+    RCP<const FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node> > constFROSchLinearOp(const RCP<const VectorSpaceBase<Scalar> > &rangeSpace,
+                                                                                              const RCP<const VectorSpaceBase<Scalar> > &domainSpace,
+                                                                                              const RCP<const Operator<Scalar,LocalOrdinal,GlobalOrdinal,Node> > &xpetraOperator,
                                                                                               bool bIsEpetra,
                                                                                               bool bIsTpetra)
     {
-        const RCP<FROSchLinearOp<SC,LO,GO,NO> > op =
-        rcp(new FROSchLinearOp<SC,LO,GO,NO>);
+        const RCP<FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node> > op =
+        rcp(new FROSchLinearOp<Scalar, LocalOrdinal, GlobalOrdinal, Node>);
         op->constInitialize(rangeSpace, domainSpace, xpetraOperator,bIsEpetra,bIsTpetra);
         return op;
     }
@@ -231,3 +228,4 @@ namespace Thyra {
 #endif
 
 #endif // THYRA_XPETRA_LINEAR_OP_DECL_HPP
+

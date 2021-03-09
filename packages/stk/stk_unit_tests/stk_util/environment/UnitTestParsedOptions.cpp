@@ -1,6 +1,5 @@
-#include "gtest/gtest.h"
-#include "stk_util/environment/ParsedOptions.hpp"  // for ParsedOptions, VariableType
-#include <string>                                  // for string
+#include <gtest/gtest.h>
+#include <stk_util/environment/ParsedOptions.hpp>
 
 namespace {
 

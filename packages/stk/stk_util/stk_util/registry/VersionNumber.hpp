@@ -9,11 +9,8 @@
 #ifndef STK_UTIL_INCLUDE_VERSION_H_
 #define STK_UTIL_INCLUDE_VERSION_H_
 
-#include <ostream>  // for ostream
-#include <string>   // for string
-
-#undef major
-#undef minor
+#include <ostream>
+#include <string>
 
 namespace stk 
 {

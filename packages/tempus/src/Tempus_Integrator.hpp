@@ -9,7 +9,6 @@
 #ifndef Tempus_Integrator_hpp
 #define Tempus_Integrator_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_Types.hpp"
 #include "Teuchos_VerboseObject.hpp"
 #include "Teuchos_Describable.hpp"

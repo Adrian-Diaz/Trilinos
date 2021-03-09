@@ -905,8 +905,6 @@ void test_view_mapping() {
         Kokkos::Impl::ViewCtorProp<int*>(nullptr), stride);
   }
 
-  // FIXME_SYCL requires MDRangePolicy
-#ifndef KOKKOS_ENABLE_SYCL
   {
     using V           = Kokkos::View<int**, Space>;
     using M           = typename V::HostMirror;
@@ -1033,7 +1031,6 @@ void test_view_mapping() {
     ASSERT_EQ(d.extent(0), 7);
     ASSERT_EQ(d.extent(1), 8);
   }
-#endif
 
   {
     using V = Kokkos::View<int*, Space>;
@@ -1073,7 +1070,7 @@ void test_view_mapping() {
 
 // TODO: a.use_count() and x.use_count() are 0 with the asynchronous HPX
 // backend. Why?
-#if !defined(KOKKOS_ENABLE_CUDA_LAMBDA) && \
+#if !defined(KOKKOS_ENABLE_CUDA_LAMBDA) && !defined(KOKKOS_ENABLE_ROCM) && \
     !(defined(KOKKOS_ENABLE_HPX) && defined(KOKKOS_ENABLE_HPX_ASYNC_DISPATCH))
     // Cannot launch host lambda when CUDA lambda is enabled.
 

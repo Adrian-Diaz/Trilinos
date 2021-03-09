@@ -9,7 +9,6 @@
 #ifndef Tempus_StepperTrapezoidalAppActionComposite_hpp
 #define Tempus_StepperTrapezoidalAppActionComposite_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_StepperTrapezoidalAppAction.hpp"
 #include "Tempus_TimeStepControl.hpp"
 #include <vector>

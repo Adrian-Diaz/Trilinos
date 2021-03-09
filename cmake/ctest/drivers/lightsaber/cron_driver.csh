@@ -38,8 +38,11 @@ source ~/.cshrc
 setenv CTEST_CONFIGURATION "default"
 module purge
 module load sems-env
-module load sems-devpack-gcc/5.3.0
-module load sems-cmake/3.17.1
+module load sems-cmake/3.10.3
+module load sems-gcc/4.9.3
+module load sems-openmpi/1.8.7
+module load sems-superlu/4.3/base
+module load sems-python/2.7.9
 
 # Remove colors (-fdiagnostics-color) from OMPI flags
 # It may result in non-XML characters on the Dashboard
@@ -63,8 +66,11 @@ setenv SCRIPT_DIR `dirname "$0"`
 echo "SCRIPT_DIR = " $SCRIPT_DIR
 $SCRIPT_DIR/../cron_driver.py
 
-module unload sems-cmake/3.17.1
-module unload sems-devpack-gcc/5.3.0
+module unload sems-python/2.7.9
+module unload sems-superlu/4.3/base
+module unload sems-openmpi/1.10.1
+module unload sems-gcc/5.3.0
+module unload sems-cmake/3.10.3
 # ===========================================================================
 
 echo

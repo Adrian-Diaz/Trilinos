@@ -9,7 +9,6 @@
 #ifndef Tempus_StepperBackwardEulerAppActionComposite_hpp
 #define Tempus_StepperBackwardEulerAppActionComposite_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_StepperBackwardEulerAppAction.hpp"
 #include "Tempus_TimeStepControl.hpp"
 #include <vector>

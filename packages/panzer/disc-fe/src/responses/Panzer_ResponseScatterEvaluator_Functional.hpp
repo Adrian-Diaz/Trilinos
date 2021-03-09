@@ -141,7 +141,7 @@ void FunctionalScatter<LO,GO>::scatterDerivative(const PHX::MDField<const panzer
                                                 WorksetDetailsAccessor& wda,
                                                 const std::vector<Teuchos::ArrayRCP<double> > & dgdx) const 
 {
-  PHX::View<const LO*> LIDs;
+  Kokkos::View<const LO*, PHX::Device> LIDs;
  
   // for convenience pull out some objects from workset
   std::string blockId = wda(workset).block_id;
@@ -178,7 +178,7 @@ void FunctionalScatter<LO,GO>::scatterHessian(const PHX::MDField<const panzer::T
                                                 WorksetDetailsAccessor& wda,
                                                 const std::vector<Teuchos::ArrayRCP<double> > & d2gdx2) const 
 {
-  PHX::View<const LO*> LIDs;
+  Kokkos::View<const LO*, PHX::Device> LIDs;
  
   // for convenience pull out some objects from workset
   std::string blockId = wda(workset).block_id;

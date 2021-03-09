@@ -9,7 +9,6 @@
 #ifndef Tempus_StepperLeapfrogAppActionComposite_hpp
 #define Tempus_StepperLeapfrogAppActionComposite_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_StepperLeapfrogAppAction.hpp"
 #include "Tempus_TimeStepControl.hpp"
 #include <vector>

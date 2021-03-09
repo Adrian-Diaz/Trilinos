@@ -11,7 +11,6 @@
 
 #include "Thyra_ModelEvaluatorDefaultBase.hpp"
 #include "Thyra_NonlinearSolverBase.hpp"
-#include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
 
 namespace Tempus {

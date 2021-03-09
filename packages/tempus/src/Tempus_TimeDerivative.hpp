@@ -13,7 +13,6 @@
 #include "Thyra_VectorBase.hpp"
 #include "Thyra_VectorStdOps.hpp"
 
-#include "Tempus_config.hpp"
 
 namespace Tempus {
 

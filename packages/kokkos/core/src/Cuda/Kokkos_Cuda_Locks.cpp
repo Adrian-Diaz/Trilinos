@@ -42,10 +42,13 @@
 //@HEADER
 */
 
-#include <Kokkos_Core.hpp>
+#include <Kokkos_Macros.hpp>
+
 #ifdef KOKKOS_ENABLE_CUDA
+
 #include <Cuda/Kokkos_Cuda_Locks.hpp>
 #include <Cuda/Kokkos_Cuda_Error.hpp>
+#include <Kokkos_Cuda.hpp>
 
 #ifdef KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE
 namespace Kokkos {

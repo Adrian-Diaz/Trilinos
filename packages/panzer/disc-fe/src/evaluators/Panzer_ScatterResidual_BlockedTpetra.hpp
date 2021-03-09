@@ -164,10 +164,10 @@ private:
   Teuchos::RCP<const BlockedTpetraLinearObjContainer<RealType,LO,GO,NodeT> > blockedContainer_;
 
   //! Local indices for unknowns
-  PHX::View<LO**> worksetLIDs_;
+  Kokkos::View<LO**,PHX::Device> worksetLIDs_;
 
   //! Offset into the cell lids for each field
-  std::vector<PHX::View<int*>> fieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> fieldOffsets_;
 
   ScatterResidual_BlockedTpetra();
 };
@@ -257,13 +257,13 @@ private:
   Teuchos::RCP<const BlockedTpetraLinearObjContainer<RealType,LO,GO,NodeT> > blockedContainer_;
 
   //! Local indices for unknowns
-  PHX::View<LO**> worksetLIDs_;
+  Kokkos::View<LO**,PHX::Device> worksetLIDs_;
 
   //! Offset into the cell lids for each field. Size of number of fields to scatter.
-  std::vector<PHX::View<int*>> fieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> fieldOffsets_;
 
   //! The offset values of the blocked DOFs per element. Size of number of blocks in the product vector + 1. The plus one is a sentinel.
-  PHX::View<LO*> blockOffsets_;
+  Kokkos::View<LO*,PHX::Device> blockOffsets_;
 
   ScatterResidual_BlockedTpetra();
 };

@@ -50,6 +50,5 @@
 #define TEST_CATEGORY openmp
 #define TEST_CATEGORY_DEATH openmp_DeathTest
 #define TEST_EXECSPACE Kokkos::OpenMP
-#define TEST_CATEGORY_FIXTURE(name) openmp_##name
 
 #endif

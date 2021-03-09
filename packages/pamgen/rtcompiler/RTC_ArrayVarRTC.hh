@@ -30,7 +30,6 @@ class ArrayVar : public Variable
     _size    = size;
     _sizeExp = NULL;
     _values  = NULL;
-    _isArg   = true; // _values is null
   }
 
   /**
@@ -46,7 +45,6 @@ class ArrayVar : public Variable
     _size = 0;
     _sizeExp = sizePtr;
     _values  = NULL;
-    _isArg   = true; // _values is null
   }
 
   /**

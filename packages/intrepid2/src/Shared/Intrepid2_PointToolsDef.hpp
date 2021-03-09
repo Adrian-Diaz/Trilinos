@@ -126,15 +126,16 @@ getLattice(       Kokkos::DynRankView<pointValueType,pointProperties...> points,
       ">>> ERROR (PointTools::getLattice): dimension does not match to lattice size." );
 #endif
 
+  auto hostPoints = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace::memory_space(), points);
+
   switch (cell.getBaseKey()) {
-  case shards::Tetrahedron<>::key: getLatticeTetrahedron( points, order, offset, pointType );  break;
-  case shards::Triangle<>::key:    getLatticeTriangle   ( points, order, offset, pointType );  break;
-  case shards::Line<>::key:        getLatticeLine       ( points, order, offset, pointType );  break;
+  case shards::Tetrahedron<>::key: getLatticeTetrahedron( hostPoints, order, offset, pointType );  break;
+  case shards::Triangle<>::key:    getLatticeTriangle   ( hostPoints, order, offset, pointType );  break;
+  case shards::Line<>::key:        getLatticeLine       ( hostPoints, order, offset, pointType );  break;
   case shards::Quadrilateral<>::key:   {
-    auto hostPoints = Kokkos::create_mirror_view(points);
     shards::CellTopology line(shards::getCellTopologyData<shards::Line<2> >());
     const ordinal_type numPoints = getLatticeSize( line, order, offset );
-    auto linePoints = getMatchingViewWithLabel(hostPoints, "linePoints", numPoints, 1);
+    Kokkos::DynRankView<pointValueType,Kokkos::HostSpace> linePoints("linePoints",numPoints,1);
     getLatticeLine( linePoints, order, offset, pointType );
     ordinal_type idx=0;
     for (ordinal_type j=0; j<numPoints; ++j) {
@@ -143,14 +144,12 @@ getLattice(       Kokkos::DynRankView<pointValueType,pointProperties...> points,
         hostPoints(idx,1) = linePoints(j,0);
       }
     }
-    Kokkos::deep_copy(points,hostPoints);
   }
   break;
   case shards::Hexahedron<>::key:   {
-    auto hostPoints = Kokkos::create_mirror_view(points);
     shards::CellTopology line(shards::getCellTopologyData<shards::Line<2> >());
     const ordinal_type numPoints = getLatticeSize( line, order, offset );
-    auto linePoints = getMatchingViewWithLabel(hostPoints, "linePoints", numPoints, 1);
+    Kokkos::DynRankView<pointValueType,Kokkos::HostSpace> linePoints("linePoints",numPoints,1);
     getLatticeLine( linePoints, order, offset, pointType );
     ordinal_type idx=0;
     for (ordinal_type k=0; k<numPoints; ++k) {
@@ -162,7 +161,6 @@ getLattice(       Kokkos::DynRankView<pointValueType,pointProperties...> points,
         }
       }
     }
-    Kokkos::deep_copy(points,hostPoints);
   }
   break;
   default: {
@@ -170,6 +168,7 @@ getLattice(       Kokkos::DynRankView<pointValueType,pointProperties...> points,
         ">>> ERROR (Intrepid2::PointTools::getLattice): the specified cell type is not supported." );
   }
   }
+  Kokkos::deep_copy(points,hostPoints);
 }
 
 template<typename pointValueType, class ...pointProperties>
@@ -271,7 +270,7 @@ PointTools::
 getEquispacedLatticeLine(      Kokkos::DynRankView<pointValueType,pointProperties...> points,
     const ordinal_type order,
     const ordinal_type offset ) {
-  auto pointsHost = Kokkos::create_mirror_view(points);
+  auto pointsHost = Kokkos::create_mirror_view(Kokkos::HostSpace::memory_space(), points);
 
   if (order == 0)
     pointsHost(0,0) = 0.0;
@@ -328,7 +327,7 @@ getEquispacedLatticeTriangle(       Kokkos::DynRankView<pointValueType,pointProp
       std::invalid_argument ,
       ">>> ERROR (Intrepid2::PointTools::getEquispacedLatticeTriangle): order must be positive" );
 
-  auto pointsHost = Kokkos::create_mirror_view(points);
+  auto pointsHost = Kokkos::create_mirror_view(Kokkos::HostSpace::memory_space(), points);
 
   const pointValueType h = 1.0 / order;
   ordinal_type cur = 0;
@@ -353,7 +352,7 @@ getEquispacedLatticeTetrahedron( Kokkos::DynRankView<pointValueType,pointPropert
     std::invalid_argument ,
     ">>> ERROR (Intrepid2::PointTools::getEquispacedLatticeTetrahedron): order must be positive" );
 
-  auto pointsHost = Kokkos::create_mirror_view(points);
+  auto pointsHost = Kokkos::create_mirror_view(Kokkos::HostSpace::memory_space(), points);
 
   const pointValueType h = 1.0 / order;
   ordinal_type cur = 0;
@@ -558,7 +557,7 @@ getWarpBlendLatticeTriangle( Kokkos::DynRankView<pointValueType,pointProperties.
                                               );
 
 
-   auto pointsHost = Kokkos::create_mirror_view(points);
+   auto pointsHost = Kokkos::create_mirror_view(Kokkos::HostSpace::memory_space(), points);
    // now write from refPts into points, taking care of offset
    ordinal_type noffcur = 0;  // index into refPts
    ordinal_type offcur = 0;   // index ordinal_type points
@@ -897,7 +896,7 @@ getWarpBlendLatticeTetrahedron(Kokkos::DynRankView<pointValueType,pointPropertie
                                            shards::getCellTopologyData<shards::Tetrahedron<4> >()
                                            );
 
-   auto pointsHost = Kokkos::create_mirror_view(points);
+   auto pointsHost = Kokkos::create_mirror_view(Kokkos::HostSpace::memory_space(), points);
    // now write from refPts into points, taking offset into account
    ordinal_type noffcur = 0;
    ordinal_type offcur = 0;

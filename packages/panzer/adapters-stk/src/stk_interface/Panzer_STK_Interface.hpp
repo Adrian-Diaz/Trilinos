@@ -238,16 +238,10 @@ public:
    /** Adds an entity to a specified edge block.
      */
    void addEntityToEdgeBlock(stk::mesh::Entity entity,stk::mesh::Part * edgeblock);
-   /** Adds a vector of entities to a specified edge block.
-     */
-   void addEntitiesToEdgeBlock(std::vector<stk::mesh::Entity> entities,stk::mesh::Part * edgeblock);
 
    /** Adds an entity to a specified face block.
      */
    void addEntityToFaceBlock(stk::mesh::Entity entity,stk::mesh::Part * faceblock);
-   /** Adds a vector of entities to a specified face block.
-     */
-   void addEntitiesToFaceBlock(std::vector<stk::mesh::Entity> entities,stk::mesh::Part * faceblock);
 
    // Methods to interrogate the mesh topology and structure
    //////////////////////////////////////////
@@ -640,27 +634,9 @@ public:
      * in lexiographic order (uses the sorting built into the std::map).
      * This method can only be called after <code>initialize</code>.
      *
-     * \param[in,out] names Vector of names of the node sets.
+     * \param[in,out] names Vector of names of the element blocks.
      */
    void getNodesetNames(std::vector<std::string> & name) const;
-
-   /** Get a vector containing the names of the edge blocks.
-     * This function always returns the current set of edge blocks
-     * in lexiographic order (uses the sorting built into the std::map).
-     * This method can only be called after <code>initialize</code>.
-     *
-     * \param[in,out] names Vector of names of the edge blocks.
-     */
-   void getEdgeBlockNames(std::vector<std::string> & names) const;
-   
-   /** Get a vector containing the names of the face blocks.
-     * This function always returns the current set of face blocks
-     * in lexiographic order (uses the sorting built into the std::map).
-     * This method can only be called after <code>initialize</code>.
-     *
-     * \param[in,out] names Vector of names of the face blocks.
-     */
-   void getFaceBlockNames(std::vector<std::string> & names) const;
 
    //! Get a pointer to the locally owned part
    stk::mesh::Part * getOwnedPart() const

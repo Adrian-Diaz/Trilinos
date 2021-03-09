@@ -130,13 +130,7 @@ public:
   std::ostream &dumpit(std::ostream &os) const;
   std::string dumpit() const;
 
-  void delete_bucket(Bucket* bucket);
-
-  void remove_bucket(Bucket* bucket);
-
-  void add_bucket(Bucket* bucket);
-
-  void reset_partition_key(const std::vector<unsigned>& newKey);
+  void delete_bucket(Bucket * bucket);
 
 private:
   BulkData& m_mesh;

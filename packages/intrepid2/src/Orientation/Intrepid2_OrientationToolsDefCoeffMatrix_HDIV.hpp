@@ -166,23 +166,31 @@ check_getCoeffMatrix_HDIV(const subcellBasisType& subcellBasis,
 } //Debug Namespace
 
 template<typename OutputViewType,
-typename subcellBasisHostType,
-typename cellBasisHostType>
+typename subcellBasisType,
+typename cellBasisType>
 inline
 void
 OrientationTools::
 getCoeffMatrix_HDIV(OutputViewType &output,
-                    const subcellBasisHostType& subcellBasis,
-                    const cellBasisHostType& cellBasis,
-                    const ordinal_type subcellId,
-                    const ordinal_type subcellOrt) {
-  
+    const subcellBasisType& subcellBasis,
+    const cellBasisType& cellBasis,
+    const ordinal_type subcellId,
+    const ordinal_type subcellOrt) {
+
 #ifdef HAVE_INTREPID2_DEBUG
   Debug::check_getCoeffMatrix_HDIV(subcellBasis,cellBasis,subcellId,subcellOrt);
 #endif
 
-  using value_type = typename OutputViewType::non_const_value_type;
-  using host_device_type = Kokkos::HostSpace::device_type;
+  using ScalarType = typename cellBasisType::scalarType;
+  using ExecutionSpace = typename cellBasisType::ExecutionSpace;
+  using HostExecutionSpace =
+      typename Kokkos::Impl::is_space<ExecutionSpace>::host_mirror_space::execution_space;
+  using OutputValueType = typename cellBasisType::OutputValueType;
+  using PointValueType = typename cellBasisType::PointValueType;
+  using BasisViewType = Kokkos::DynRankView<OutputValueType,ExecutionSpace>;
+  using PointViewType = Kokkos::DynRankView<PointValueType,ExecutionSpace>;
+  using ScalarViewType = Kokkos::DynRankView<ScalarType,ExecutionSpace>;
+
 
   //
   // Collocation points
@@ -205,7 +213,7 @@ getCoeffMatrix_HDIV(OutputViewType &output,
       cellBasis.getDegree()+2 : cellBasis.getDegree()+1;
 
   // Reference points \xi_j on the subcell
-  Kokkos::DynRankView<value_type,host_device_type> refPtsSubcell("refPtsSubcell", ndofSubcell, subcellDim);
+  PointViewType refPtsSubcell("refPtsSubcell", ndofSubcell, subcellDim);
   auto latticeSize=PointTools::getLatticeSize(subcellTopo, latticeDegree, 1);
   INTREPID2_TEST_FOR_EXCEPTION( latticeSize != ndofSubcell,
       std::logic_error,
@@ -214,16 +222,16 @@ getCoeffMatrix_HDIV(OutputViewType &output,
   PointTools::getLattice(refPtsSubcell, subcellTopo, latticeDegree, 1);//, POINTTYPE_WARPBLEND);
 
   // evaluate values on the modified cell
-  typename Intrepid2::CellTools<host_device_type>::subcellParamViewType subcellParam;
-  Intrepid2::CellTools<host_device_type>::getSubcellParametrization(subcellParam, subcellDim, cellTopo);
+  typename CellTools<ExecutionSpace>::subcellParamViewType subcellParam;
+  CellTools<ExecutionSpace>::getSubcellParametrization(subcellParam, subcellDim, cellTopo);
 
   // refPtsCell = F_s (\eta_o (refPtsSubcell))
-  Kokkos::DynRankView<value_type,host_device_type> refPtsCell("refPtsCell", ndofSubcell, cellDim);
+  PointViewType refPtsCell("refPtsCell", ndofSubcell, cellDim);
   // map points from the subcell manifold into the cell one
   mapSubcellCoordsToRefCell(refPtsCell,refPtsSubcell, subcellParam, subcellBaseKey, subcellId, subcellOrt);
 
   //computing normal to the subcell accounting for orientation
-  Kokkos::DynRankView<value_type,host_device_type> tangentsAndNormal("trJacobianF", cellDim, cellDim );
+  ScalarViewType tangentsAndNormal("trJacobianF", cellDim, cellDim );
   OrientationTools::getRefSideTangentsAndNormal(tangentsAndNormal, subcellParam, subcellBaseKey, subcellId, subcellOrt);
   auto sideNormal = Kokkos::subview(tangentsAndNormal, cellDim-1, Kokkos::ALL());
 
@@ -233,12 +241,13 @@ getCoeffMatrix_HDIV(OutputViewType &output,
   //
 
   // cellBasisValues = \psi_k(F_s (\eta_o (\xi_j)))
-  Kokkos::DynRankView<value_type,host_device_type> cellBasisValues("cellBasisValues", numCellBasis, ndofSubcell, cellDim);
+  PointViewType cellBasisValues("cellBasisValues", numCellBasis, ndofSubcell, cellDim);
   cellBasis.getValues(cellBasisValues, refPtsCell, OPERATOR_VALUE);
 
   // subcellBasisValues = \phi_i (\xi_j)
-  Kokkos::DynRankView<value_type,host_device_type> subCellValues("subCellValues", numSubcellBasis, ndofSubcell);
+  BasisViewType subCellValues("subCellValues", numSubcellBasis, ndofSubcell);
   subcellBasis.getValues(subCellValues, refPtsSubcell, OPERATOR_VALUE);
+  ExecutionSpace().fence();
 
   //
   // Compute Psi_jk = \psi_k(F_s (\eta_o (\xi_j))) \cdot (n_s det(J_\eta))
@@ -247,12 +256,12 @@ getCoeffMatrix_HDIV(OutputViewType &output,
   //
 
   // construct Psi and Phi  matrices.  LAPACK wants left layout
-  Kokkos::DynRankView<value_type,Kokkos::LayoutLeft,host_device_type>
-    PsiMat("PsiMat", ndofSubcell, ndofSubcell),
-    PhiMat("PhiMat", ndofSubcell, ndofSubcell);
+  Kokkos::View<ScalarType**,Kokkos::LayoutLeft,ExecutionSpace>
+  PsiMat("PsiMat", ndofSubcell, ndofSubcell),
+  PhiMat("PhiMat", ndofSubcell, ndofSubcell);
 
-  auto cellTagToOrdinal = cellBasis.getAllDofOrdinal();
-  auto subcellTagToOrdinal = subcellBasis.getAllDofOrdinal();
+  auto cellTagToOrdinal = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), cellBasis.getAllDofOrdinal());
+  auto subcellTagToOrdinal = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), subcellBasis.getAllDofOrdinal());
 
   for (ordinal_type i=0;i<ndofSubcell;++i) {
     const ordinal_type ic = cellTagToOrdinal(subcellDim, subcellId, i);
@@ -264,21 +273,21 @@ getCoeffMatrix_HDIV(OutputViewType &output,
     }
   }
 
-  auto RefMat = PsiMat;
-  auto OrtMat = PhiMat;
+  auto hostRefMat = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), PsiMat);
+  auto hostOrtMat = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), PhiMat);
 
   // solve the system
   {
-    Teuchos::LAPACK<ordinal_type,value_type> lapack;
+    Teuchos::LAPACK<ordinal_type, ScalarType> lapack;
     ordinal_type info = 0;
-    Kokkos::DynRankView<ordinal_type,host_device_type> pivVec("pivVec", ndofSubcell);
+    Kokkos::View<ordinal_type*,Kokkos::LayoutLeft,HostExecutionSpace> pivVec("pivVec", ndofSubcell);
 
     lapack.GESV(ndofSubcell, ndofSubcell,
-        PsiMat.data(),
-        PsiMat.stride_1(),
+        hostRefMat.data(),
+        hostRefMat.stride_1(),
         pivVec.data(),
-        PhiMat.data(),
-        PhiMat.stride_1(),
+        hostOrtMat.data(),
+        hostOrtMat.stride_1(),
         &info);
 
     if (info) {
@@ -294,16 +303,16 @@ getCoeffMatrix_HDIV(OutputViewType &output,
     // transpose and clean up numerical noise (for permutation matrices)
     const double eps = tolerence();
     for (ordinal_type i=0;i<ndofSubcell;++i) {
-      auto intmatii = std::round(PhiMat(i,i));
-      PhiMat(i,i) = (std::abs(PhiMat(i,i) - intmatii) < eps) ? intmatii : PhiMat(i,i);
+      auto intmatii = std::round(hostOrtMat(i,i));
+      hostOrtMat(i,i) = (std::abs(hostOrtMat(i,i) - intmatii) < eps) ? intmatii : hostOrtMat(i,i);
       for (ordinal_type j=i+1;j<ndofSubcell;++j) {
-        auto matij = PhiMat(i,j);
+        auto matij = hostOrtMat(i,j);
 
-        auto intmatji = std::round(PhiMat(j,i));
-        PhiMat(i,j) = (std::abs(PhiMat(j,i) - intmatji) < eps) ? intmatji : PhiMat(j,i);
+        auto intmatji = std::round(hostOrtMat(j,i));
+        hostOrtMat(i,j) = (std::abs(hostOrtMat(j,i) - intmatji) < eps) ? intmatji : hostOrtMat(j,i);
 
         auto intmatij = std::round(matij);
-        PhiMat(j,i) = (std::abs(matij - intmatij) < eps) ? intmatij : matij;
+        hostOrtMat(j,i) = (std::abs(matij - intmatij) < eps) ? intmatij : matij;
       }
     }
 
@@ -313,7 +322,7 @@ getCoeffMatrix_HDIV(OutputViewType &output,
       std::cout  << "|";
       for (ordinal_type i=0;i<ndofSubcell;++i) {
         for (ordinal_type j=0;j<ndofSubcell;++j) {
-          std::cout << PhiMat(i,j) << " ";
+          std::cout << hostOrtMat(i,j) << " ";
         }
         std::cout  << "| ";
       }
@@ -326,9 +335,7 @@ getCoeffMatrix_HDIV(OutputViewType &output,
   {
     // move the data to original device memory
     const Kokkos::pair<ordinal_type,ordinal_type> range(0, ndofSubcell);
-    auto suboutput = Kokkos::subview(output, range, range);
-    auto tmp = Kokkos::create_mirror_view_and_copy(typename OutputViewType::device_type::memory_space(), PhiMat);
-    Kokkos::deep_copy(suboutput, tmp);
+    Kokkos::deep_copy(Kokkos::subview(output, range, range), hostOrtMat);
   }
 }
 }

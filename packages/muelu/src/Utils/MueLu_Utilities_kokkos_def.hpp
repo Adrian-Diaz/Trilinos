@@ -105,7 +105,7 @@
 #include <MueLu_Utilities_kokkos_decl.hpp>
 
 #include <KokkosKernels_Handle.hpp>
-#include <KokkosGraph_RCM.hpp>
+#include <KokkosSparse_partitioning_impl.hpp>
 
 
 namespace MueLu {
@@ -667,11 +667,14 @@ namespace MueLu {
     using execution_space   = typename local_matrix_type::execution_space;
     using ordinal_type      = typename local_matrix_type::ordinal_type;
 
-    local_graph_type localGraph = Op.getLocalMatrix().graph;
+    local_matrix_type localMatrix = Op.getLocalMatrix();
+    using KernelHandle =  KokkosKernels::Experimental::KokkosKernelsHandle<typename local_graph_type::size_type, LocalOrdinal,Scalar,
+      typename device::execution_space, typename device::memory_space,typename device::memory_space>;
 
-    lno_nnz_view_t rcmOrder = KokkosGraph::Experimental::graph_rcm
-      <device, typename local_graph_type::row_map_type, typename local_graph_type::entries_type, lno_nnz_view_t>
-      (localGraph.row_map, localGraph.entries);
+    using rcm_t = KokkosSparse::Impl::RCM<KernelHandle, typename local_graph_type::row_map_type::const_type, typename local_graph_type::entries_type::non_const_type>;
+    
+    rcm_t rcm(localMatrix.numRows(), localMatrix.graph.row_map, localMatrix.graph.entries);
+    lno_nnz_view_t rcmOrder = rcm.rcm();
 
     RCP<Xpetra::Vector<LocalOrdinal,LocalOrdinal,GlobalOrdinal,Node> > retval = 
       Xpetra::VectorFactory<LocalOrdinal,LocalOrdinal,GlobalOrdinal,Node>::Build(Op.getRowMap());
@@ -679,7 +682,7 @@ namespace MueLu {
     // Copy out and reorder data
     auto view1D = Kokkos::subview(retval->getDeviceLocalView(),Kokkos::ALL (), 0);
     Kokkos::parallel_for("Utilities_kokkos::ReverseCuthillMcKee",
-                         Kokkos::RangePolicy<ordinal_type, execution_space>(0, localGraph.numRows()),
+                         Kokkos::RangePolicy<ordinal_type, execution_space>(0, localMatrix.numRows()),
                          KOKKOS_LAMBDA(const ordinal_type rowIdx) {
                            view1D(rcmOrder(rowIdx)) = rowIdx;
                          });
@@ -695,23 +698,24 @@ namespace MueLu {
     using execution_space   = typename local_matrix_type::execution_space;
     using ordinal_type      = typename local_matrix_type::ordinal_type;
 
-    local_graph_type localGraph = Op.getLocalMatrix().graph;
-    LocalOrdinal numRows = localGraph.numRows();
+    local_matrix_type localMatrix = Op.getLocalMatrix();
+    using KernelHandle =  KokkosKernels::Experimental::KokkosKernelsHandle<typename local_graph_type::size_type, LocalOrdinal,Scalar,
+      typename device::execution_space, typename device::memory_space,typename device::memory_space>;
 
-    lno_nnz_view_t rcmOrder = KokkosGraph::Experimental::graph_rcm
-      <device, typename local_graph_type::row_map_type, typename local_graph_type::entries_type, lno_nnz_view_t>
-      (localGraph.row_map, localGraph.entries);
+    using rcm_t = KokkosSparse::Impl::RCM<KernelHandle, typename local_graph_type::row_map_type::const_type, typename local_graph_type::entries_type::non_const_type>;
+    
+    rcm_t rcm(localMatrix.numRows(), localMatrix.graph.row_map, localMatrix.graph.entries);
+    lno_nnz_view_t rcmOrder = rcm.cuthill_mckee();
 
     RCP<Xpetra::Vector<LocalOrdinal,LocalOrdinal,GlobalOrdinal,Node> > retval = 
       Xpetra::VectorFactory<LocalOrdinal,LocalOrdinal,GlobalOrdinal,Node>::Build(Op.getRowMap());
 
     // Copy out data
     auto view1D = Kokkos::subview(retval->getDeviceLocalView(),Kokkos::ALL (), 0);
-    // Since KokkosKernels produced RCM, also reverse the order of the view to get CM
     Kokkos::parallel_for("Utilities_kokkos::ReverseCuthillMcKee",
-                         Kokkos::RangePolicy<ordinal_type, execution_space>(0, numRows),
+                         Kokkos::RangePolicy<ordinal_type, execution_space>(0, localMatrix.numRows()),
                          KOKKOS_LAMBDA(const ordinal_type rowIdx) {
-                           view1D(rcmOrder(numRows - 1 - rowIdx)) = rowIdx;
+                           view1D(rcmOrder(rowIdx)) = rowIdx;
                          });
     return retval;
   }

@@ -35,7 +35,7 @@
 #ifndef STK_UTIL_PARALLEL_BROADCASTARG_HPP
 #define STK_UTIL_PARALLEL_BROADCASTARG_HPP
 
-#include "stk_util/parallel/Parallel.hpp"  // for ParallelMachine
+#include <stk_util/parallel/Parallel.hpp>
 
 namespace stk {
 

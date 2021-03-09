@@ -13,7 +13,6 @@
 #include "Teuchos_VerboseObject.hpp"
 #include "Teuchos_Describable.hpp"
 // Tempus
-#include "Tempus_config.hpp"
 #include "Tempus_Types.hpp"
 
 

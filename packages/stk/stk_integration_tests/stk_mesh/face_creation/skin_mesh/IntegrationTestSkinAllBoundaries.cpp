@@ -18,6 +18,7 @@
 #include <stk_mesh/base/Comm.hpp>
 #include <stk_mesh/base/SkinBoundary.hpp>
 #include <stk_unit_test_utils/ioUtils.hpp>
+#include <stk_util/parallel/ParallelReduce.hpp>
 #include <stk_unit_test_utils/MeshFixture.hpp>  // for MeshTestFixture
 #include <stk_unit_test_utils/FaceCreationTestUtils.hpp>
 

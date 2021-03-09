@@ -37,7 +37,6 @@
 #include "stk_util/stk_config.h"
 #include "Kokkos_Core.hpp"
 #include "Kokkos_DualView.hpp"
-#include "stk_mesh/base/Ngp.hpp"
 #include "stk_mesh/base/NgpFieldBase.hpp"
 #include "stk_mesh/base/BulkData.hpp"
 #include "stk_mesh/base/Field.hpp"
@@ -47,7 +46,6 @@
 #include "stk_mesh/base/NgpProfilingBlock.hpp"
 #include "stk_mesh/base/FieldSyncDebugging.hpp"
 #include "stk_mesh/base/NgpUtils.hpp"
-#include "stk_mesh/base/NgpFieldSyncDebugger.hpp"
 
 namespace stk {
 namespace mesh {
@@ -75,12 +73,11 @@ private:
 template<typename T> using UnmanagedHostInnerView = Kokkos::View<T**, Kokkos::LayoutRight, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 template<typename T> using UnmanagedDevInnerView = Kokkos::View<T**, Kokkos::LayoutRight, stk::mesh::MemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
-template<typename T, template <typename> class NgpDebugger>
+template<typename T>
 class HostField : public NgpFieldBase
 {
 public:
-  using value_type = T;
-  using StkDebugger = typename NgpDebugger<T>::StkFieldSyncDebuggerType;
+  typedef T value_type;
 
   HostField()
     : NgpFieldBase(),
@@ -94,21 +91,20 @@ public:
     : NgpFieldBase(),
       field(&f)
   {
-    field->template make_field_sync_debugger<StkDebugger>();
     needSyncToHost = std::make_shared<bool>(false);
     needSyncToDevice = std::make_shared<bool>(false);
   }
 
-  HostField(const HostField<T, NgpDebugger>&) = default;
-  HostField(HostField<T, NgpDebugger>&&) = default;
-  HostField<T, NgpDebugger>& operator=(const HostField<T, NgpDebugger>&) = default;
-  HostField<T, NgpDebugger>& operator=(HostField<T, NgpDebugger>&&) = default;
+  HostField(const HostField<T>&) = default;
+  HostField(HostField<T>&&) = default;
+  HostField<T>& operator=(const HostField<T>&) = default;
+  HostField<T>& operator=(HostField<T>&&) = default;
 
   virtual ~HostField() = default;
 
   void update_field(bool needToSyncAllDataToDevice = false) override {}
 
-  void set_field_states(HostField<T, NgpDebugger>* fields[]) {}
+  void set_field_states(HostField<T>* fields[]) {}
 
   size_t num_syncs_to_host() const override { return field->num_syncs_to_host(); }
   size_t num_syncs_to_device() const override { return field->num_syncs_to_device(); }
@@ -119,11 +115,20 @@ public:
     return stk::mesh::field_scalars_per_entity(*field, entity.bucket_id);
   }
 
-  unsigned debug_get_bucket_offset(unsigned bucketOrdinal) const override {
+#ifdef STK_DEBUG_FIELD_SYNC
+  unsigned get_bucket_offset(unsigned bucketOrdinal) const override {
     return bucketOrdinal;
   }
 
+  void detect_device_field_modification() override {
+  }
 
+  void update_debug_storage(size_t hostSynchronizedCount) override {
+  }
+
+  bool lost_device_field_data() const override {
+    return false;
+  }
 
   T& get(const HostMesh& ngpMesh, stk::mesh::Entity entity, int component,
          const char * fileName = HOST_DEBUG_FILE_NAME, int lineNumber = HOST_DEBUG_LINE_NUMBER) const
@@ -173,6 +178,52 @@ public:
     ThrowAssert(data);
     return EntityFieldData<T>(data, numScalars);
   }
+
+#else
+
+  T& get(const HostMesh& ngpMesh, stk::mesh::Entity entity, int component) const
+  {
+    T *data = static_cast<T *>(stk::mesh::field_data(*field, entity));
+    ThrowAssert(data);
+    return data[component];
+  }
+
+  T& get(stk::mesh::FastMeshIndex entity, int component) const
+  {
+    T *data = static_cast<T *>(stk::mesh::field_data(*field, entity.bucket_id, entity.bucket_ord));
+    ThrowAssert(data);
+    return data[component];
+  }
+
+  T& get(HostMesh::MeshIndex entity, int component) const
+  {
+    T* data = static_cast<T *>(stk::mesh::field_data(*field, entity.bucket->bucket_id(), entity.bucketOrd));
+    ThrowAssert(data);
+    return data[component];
+  }
+
+  T& operator()(const stk::mesh::FastMeshIndex& index, int component) const
+  {
+    T *data = static_cast<T *>(stk::mesh::field_data(*field, index.bucket_id, index.bucket_ord));
+    ThrowAssert(data);
+    return data[component];
+  }
+
+  T& operator()(const HostMesh::MeshIndex& index, int component) const
+  {
+    T* data = static_cast<T *>(stk::mesh::field_data(*field, index.bucket->bucket_id(), index.bucketOrd));
+    ThrowAssert(data);
+    return data[component];
+  }
+
+  EntityFieldData<T> operator()(const stk::mesh::FastMeshIndex& index) const
+  {
+    T *data = static_cast<T *>(stk::mesh::field_data(*field, index.bucket_id, index.bucket_ord));
+    unsigned numScalars = stk::mesh::field_scalars_per_entity(*field, index.bucket_id);
+    ThrowAssert(data);
+    return EntityFieldData<T>(data, numScalars);
+  }
+#endif
 
   void set_all(const HostMesh& ngpMesh, const T& value)
   {
@@ -240,9 +291,6 @@ public:
 
   unsigned get_ordinal() const { return field->mesh_meta_data_ordinal(); }
 
-  void debug_modification_begin() override {}
-  void debug_modification_end(size_t) override {}
-  void debug_detect_device_field_modification() override {}
 
 protected:
   bool need_sync_to_host() const { return *needSyncToHost; }
@@ -276,16 +324,19 @@ private:
   std::shared_ptr<bool> needSyncToDevice;
 };
 
-
-template<typename T, template <typename> class NgpDebugger>
+template<typename T>
 class DeviceField : public NgpFieldBase
 {
 private:
-  using FieldDataDeviceUnmanagedViewType = Kokkos::View<T***, Kokkos::LayoutRight, MemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-  using StkDebugger = typename NgpDebugger<T>::StkFieldSyncDebuggerType;
+  typedef Kokkos::View<T***, Kokkos::LayoutRight, MemSpace> FieldDataDeviceViewType;
+  typedef Kokkos::View<T***, Kokkos::LayoutRight, MemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>> FieldDataDeviceUnmanagedViewType;
+  typedef Kokkos::View<T***, Kokkos::LayoutRight, Kokkos::HostSpace> FieldDataHostViewType;
+#ifdef STK_DEBUG_FIELD_SYNC
+  template <typename U> using HostArrayType = Kokkos::View<U*, Kokkos::HostSpace>;
+#endif
 
 public:
-  using value_type = T;
+  typedef T value_type;
 
   KOKKOS_FUNCTION
   DeviceField()
@@ -299,8 +350,7 @@ public:
       maxNumScalarsPerEntity(0),
       synchronizedCount(0),
       userSpecifiedSelector(false),
-      syncSelector(nullptr),
-      fieldSyncDebugger(nullptr)
+      syncSelector(nullptr)
   {
     const int maxStates = static_cast<int>(stk::mesh::MaximumFieldStates);
     for (int s=0; s<maxStates; ++s) {
@@ -308,24 +358,20 @@ public:
     }
   }
 
-  DeviceField(const stk::mesh::BulkData& bulk, const stk::mesh::FieldBase &stkField, bool isFromGetUpdatedNgpField = false)
+  DeviceField(const stk::mesh::BulkData& bulk, const stk::mesh::FieldBase &field, bool isFromGetUpdatedNgpField = false)
     : NgpFieldBase(),
-      rank(stkField.entity_rank()),
-      ordinal(stkField.mesh_meta_data_ordinal()),
+      rank(field.entity_rank()),
+      ordinal(field.mesh_meta_data_ordinal()),
       hostBulk(&bulk),
-      hostField(&stkField),
+      hostField(&field),
       bucketCapacity(0),
       numBucketsForField(0),
       maxNumScalarsPerEntity(0),
       synchronizedCount(bulk.synchronized_count()),
       copyCounter("copy_counter"),
       userSpecifiedSelector(false),
-      syncSelector(new Selector()),
-      fieldSyncDebugger(nullptr)
+      syncSelector(new Selector())
   {
-    hostField->template make_field_sync_debugger<StkDebugger>();
-    fieldSyncDebugger = NgpDebugger<T>(&hostField->get_field_sync_debugger<StkDebugger>());
-
     needSyncToHost = Kokkos::View<bool, HostExecSpace>("needSyncToHost");
     needSyncToDevice = Kokkos::View<bool, HostExecSpace>("needSyncToDevice");
 
@@ -337,10 +383,12 @@ public:
 
     update_field();
 
-    fieldSyncDebugger.initialize_debug_views(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+    initialize_debug_views();
+#endif
   }
 
-  void set_field_states(DeviceField<T, NgpDebugger>* fields[])
+  void set_field_states(DeviceField<T>* fields[])
   {
     const unsigned numStates = hostField->number_of_states();
     for (unsigned state = 0; state < numStates; ++state) {
@@ -378,7 +426,22 @@ public:
       copy_new_and_modified_buckets_from_host(buckets, maxNumScalarsPerEntity);
     }
 
-    fieldSyncDebugger.update_field(this, needToSyncAllDataToDevice);
+#ifdef STK_DEBUG_FIELD_SYNC
+    if (lastFieldValue.extent(0) != 0) {
+      lostDeviceFieldData() = false;
+      anyPotentialDeviceFieldModification() = false;
+
+      Kokkos::deep_copy(lastFieldValue, deviceData);
+
+      if (needToSyncAllDataToDevice) {
+        reset_last_modification_state(LastModLocation::HOST_OR_DEVICE);
+      }
+
+      hostSynchronizedCount() = hostBulk->synchronized_count();
+    }
+
+    isFieldLayoutConsistent = true;
+#endif
 
     for(auto * bucket : allBuckets)
     {
@@ -435,14 +498,24 @@ public:
 
   void clear_sync_state() override
   {
-    fieldSyncDebugger.clear_sync_state(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+    if (hostBulk->synchronized_count() != synchronizedCount) {
+      update_field(need_sync_to_device());
+    }
+    Kokkos::deep_copy(lastFieldValue, deviceData);
+    lostDeviceFieldData() = false;
+    anyPotentialDeviceFieldModification() = false;
+    reset_last_modification_state(LastModLocation::HOST_OR_DEVICE);
+#endif
     clear_sync_state_flags();
     reset_sync_selector();
   }
 
   void clear_host_sync_state() override
   {
-    fieldSyncDebugger.clear_host_sync_state(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+    set_last_modification_state_bit(LastModLocation::DEVICE);
+#endif
     if (need_sync_to_device()) {
       clear_sync_state_flags();
       reset_sync_selector();
@@ -451,7 +524,15 @@ public:
 
   void clear_device_sync_state() override
   {
-    fieldSyncDebugger.clear_device_sync_state(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+    if (hostBulk->synchronized_count() != synchronizedCount) {
+      update_field(need_sync_to_device());
+    }
+    Kokkos::deep_copy(lastFieldValue, deviceData);
+    lostDeviceFieldData() = false;
+    anyPotentialDeviceFieldModification() = false;
+    set_last_modification_state_bit(LastModLocation::HOST);
+#endif
     if (need_sync_to_host()) {
       clear_sync_state_flags();
       reset_sync_selector();
@@ -463,7 +544,12 @@ public:
     if (need_sync_to_host()) {
       ProfilingBlock prof("copy_to_host for " + hostField->name());
       copy_device_to_host();
-      fieldSyncDebugger.sync_to_host(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+      Kokkos::deep_copy(lastFieldValue, deviceData);
+      reset_last_modification_state(LastModLocation::HOST_OR_DEVICE);
+      lostDeviceFieldData() = false;
+      anyPotentialDeviceFieldModification() = false;
+#endif
       reset_sync_selector();
     }
   }
@@ -475,7 +561,12 @@ public:
       ProfilingBlock prof("copy_to_device for " + hostField->name());
       if (hostBulk->synchronized_count() == synchronizedCount) {
         copy_host_to_device();
-        fieldSyncDebugger.sync_to_device(this);
+#ifdef STK_DEBUG_FIELD_SYNC
+        Kokkos::deep_copy(lastFieldValue, deviceData);
+        reset_last_modification_state(LastModLocation::HOST_OR_DEVICE);
+        lostDeviceFieldData() = false;
+        anyPotentialDeviceFieldModification() = false;
+#endif
       }
       else {
         update_field(needToSyncToDevice);
@@ -487,8 +578,8 @@ public:
   size_t synchronized_count() const override { return synchronizedCount; }
 
   KOKKOS_DEFAULTED_FUNCTION DeviceField(const DeviceField &) = default;
-  KOKKOS_DEFAULTED_FUNCTION DeviceField<T, NgpDebugger>& operator=(const DeviceField<T, NgpDebugger>&) = default;
-  KOKKOS_DEFAULTED_FUNCTION DeviceField<T, NgpDebugger>& operator=(DeviceField<T, NgpDebugger>&&) = default;
+  KOKKOS_DEFAULTED_FUNCTION DeviceField<T>& operator=(const DeviceField<T>&) = default;
+  KOKKOS_DEFAULTED_FUNCTION DeviceField<T>& operator=(DeviceField<T>&&) = default;
 
   KOKKOS_FUNCTION virtual ~DeviceField()
   {
@@ -514,8 +605,269 @@ public:
     return deviceNumComponentsPerEntity[bucketId];
   }
 
-  unsigned debug_get_bucket_offset(unsigned bucketOrdinal) const override {
-    return fieldSyncDebugger.get_bucket_offset(bucketOrdinal);
+#ifdef STK_DEBUG_FIELD_SYNC
+  unsigned get_bucket_offset(unsigned bucketOrdinal) const override {
+    return debugHostSelectedBucketOffset(bucketOrdinal);
+  }
+
+  void initialize_debug_views() {
+    stk::mesh::Selector selector = stk::mesh::selectField(*hostField);
+    const stk::mesh::BucketVector& allBuckets = hostBulk->buckets(hostField->entity_rank());
+    const stk::mesh::BucketVector& buckets = hostBulk->get_buckets(hostField->entity_rank(), selector);
+    unsigned numPerEntity = hostField->max_size(rank);
+
+    construct_debug_views(allBuckets, buckets, numPerEntity);
+
+    std::strcpy(fieldName.data(), hostField->name().data());
+    lostDeviceFieldData() = false;
+    anyPotentialDeviceFieldModification() = false;
+
+    debugHostSelectedBucketOffset = newHostSelectedBucketOffset;
+    debugDeviceSelectedBucketOffset = newDeviceSelectedBucketOffset;
+
+    Kokkos::deep_copy(lastFieldValue, deviceData);
+
+    reset_last_modification_state(LastModLocation::HOST_OR_DEVICE);
+
+    hostSynchronizedCount() = hostBulk->synchronized_count();
+    isFieldLayoutConsistent = true;
+  }
+
+  void construct_debug_views(const BucketVector & allBuckets, const BucketVector & buckets, unsigned numPerEntity) {
+    if (buckets.size() != allBuckets.size()) {
+      ThrowErrorMsg("Field Sync Debugging is not supported with partial Field allocations.");
+    }
+    if (buckets.size() != 0) {
+      FieldDataDeviceViewType tempLastFieldValue = FieldDataDeviceViewType(hostField->name()+"_lastValue", buckets.size(),
+                                                                           ORDER_INDICES(bucketCapacity, numPerEntity));
+      LastFieldModLocationType tempLastFieldModLocation = LastFieldModLocationType(hostField->name()+"_lastModLocation", buckets.size(),
+                                                                                   ORDER_INDICES(bucketCapacity, numPerEntity));
+      HostArrayType<unsigned> tempLastMeshModBucketId = HostArrayType<unsigned>("lastMeshModBucketId", allBuckets.size());
+
+      lastFieldValue = tempLastFieldValue;
+      lastFieldModLocation = tempLastFieldModLocation;
+      lastMeshModBucketId = tempLastMeshModBucketId;
+    }
+
+    hostField->set_last_modification_view(lastFieldModLocation);
+
+    if (fieldName.extent(0) == 0u) {
+      fieldName = FieldNameType(hostField->name()+"_name", hostField->name().size()+1);
+      hostSynchronizedCount = ScalarUvmType<size_t>(hostField->name()+"_hostSyncCount");
+      lostDeviceFieldData = ScalarUvmType<bool>(hostField->name()+"_anyDeviceFieldMod");
+      anyPotentialDeviceFieldModification = ScalarUvmType<bool>(hostField->name()+"_anyPotentialDeviceFieldMod");
+    }
+  }
+
+  bool lost_device_field_data() const override {
+    return lostDeviceFieldData();
+  }
+
+  void detect_device_field_modification() {
+    if (!anyPotentialDeviceFieldModification()) {
+      return;
+    }
+
+    if (field_not_updated_after_mesh_mod()) {
+      return;
+    }
+
+    stk::mesh::NgpMesh & ngpMesh = hostBulk->get_updated_ngp_mesh();
+    const stk::mesh::MetaData & meta = hostBulk->mesh_meta_data();
+
+    UnsignedViewType & localDeviceNumComponentsPerEntity = deviceNumComponentsPerEntity;
+    FieldDataDeviceViewType & localDeviceData = deviceData;
+    FieldDataDeviceViewType & localLastFieldValue = lastFieldValue;
+    LastFieldModLocationType & localLastFieldModLocation = lastFieldModLocation;
+    ScalarUvmType<bool> & localLostDeviceFieldData = lostDeviceFieldData;
+    const bool inModCycle = hostBulk->in_modifiable_state();
+
+    stk::mesh::for_each_entity_run(ngpMesh, rank, meta.locally_owned_part(),
+                                   KOKKOS_LAMBDA(const stk::mesh::FastMeshIndex& index)
+    {
+      const unsigned bucketId = index.bucket_id;
+      const unsigned numComponents = localDeviceNumComponentsPerEntity(bucketId);
+      for (unsigned component = 0; component < numComponents; ++component) {
+        if (localDeviceData(index.bucket_id, ORDER_INDICES(index.bucket_ord, component)) !=
+            localLastFieldValue(index.bucket_id, ORDER_INDICES(index.bucket_ord, component)))
+        {
+          localLastFieldModLocation(index.bucket_id, ORDER_INDICES(index.bucket_ord, component)) = LastModLocation::DEVICE;
+          if (inModCycle) {
+            localLostDeviceFieldData() = true;
+          }
+        }
+      }
+    });
+
+    anyPotentialDeviceFieldModification() = false;
+    Kokkos::fence();
+  }
+
+  void update_debug_storage(size_t hostSyncCount) {
+    hostSynchronizedCount() = hostSyncCount;
+
+    stk::mesh::Selector selector = stk::mesh::selectField(*hostField);
+    const stk::mesh::BucketVector & allBuckets = hostBulk->buckets(hostField->entity_rank());
+    const stk::mesh::BucketVector & buckets = hostBulk->get_buckets(hostField->entity_rank(), selector);
+    const unsigned numPerEntity = hostField->max_size(rank);
+
+    construct_new_index_view(allBuckets);
+    construct_debug_views(allBuckets, buckets, numPerEntity);
+
+    debugHostSelectedBucketOffset = newHostSelectedBucketOffset;
+    debugDeviceSelectedBucketOffset = newDeviceSelectedBucketOffset;
+    isFieldLayoutConsistent = false;
+  }
+
+  void set_last_modification_state_bit(LastModLocation value) {
+    for (size_t i = 0; i < lastFieldModLocation.extent(0); ++i) {
+      for (size_t j = 0; j < lastFieldModLocation.extent(1); ++j) {
+        for (size_t k = 0; k < lastFieldModLocation.extent(2); ++k) {
+          lastFieldModLocation(i, j, k) = static_cast<LastModLocation>(lastFieldModLocation(i, j, k) | value);
+        }
+      }
+    }
+  }
+
+  void reset_last_modification_state(LastModLocation value) {
+    Kokkos::deep_copy(lastFieldModLocation, value);
+  }
+
+  STK_INLINE_FUNCTION
+  bool data_is_stale_on_device(const stk::mesh::FastMeshIndex & index, int component) const {
+    return !(lastFieldModLocation(index.bucket_id, ORDER_INDICES(index.bucket_ord, component)) &
+             LastModLocation::DEVICE);
+  }
+
+  STK_INLINE_FUNCTION
+  bool data_is_stale_on_device(const stk::mesh::DeviceMesh::MeshIndex & index, int component) const {
+    return !(lastFieldModLocation(index.bucket->bucket_id(), ORDER_INDICES(index.bucketOrd, component)) &
+             LastModLocation::DEVICE);
+  }
+
+  STK_INLINE_FUNCTION
+  bool data_is_stale_on_device(int bucketId, int bucketOrdinal, int component) const {
+    return !(lastFieldModLocation(bucketId, ORDER_INDICES(bucketOrdinal, component)) &
+             LastModLocation::DEVICE);
+  }
+
+  STK_INLINE_FUNCTION
+  void set_last_modification(const stk::mesh::FastMeshIndex & index, int component, LastModLocation location) const {
+    lastFieldModLocation(index.bucket_id, ORDER_INDICES(index.bucket_ord, component)) = location;
+  }
+
+  STK_INLINE_FUNCTION
+  bool field_not_updated_after_mesh_mod() const {
+    return hostSynchronizedCount() != synchronizedCount;
+  }
+
+  STK_INLINE_FUNCTION
+  void print_unupdated_field_warning(const char * fileName, int lineNumber) const
+  {
+    if (lineNumber == -1) {
+      printf("*** WARNING: Accessing un-updated Field %s on Device after mesh modification\n", fieldName.data());
+    }
+    else {
+      printf("%s:%i *** WARNING: Accessing un-updated Field %s on Device after mesh modification\n",
+             fileName, lineNumber, fieldName.data());
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void print_stale_data_warning(unsigned bucketId, unsigned bucketOrdinal, int component,
+                                const char * fileName, int lineNumber) const
+  {
+    if (lineNumber == -1) {
+      printf("*** WARNING: Accessing stale data on Device for Field %s[%i]=%f\n",
+             fieldName.data(), component,
+             static_cast<double>(deviceData(bucketId, ORDER_INDICES(bucketOrdinal, component))));
+    }
+    else {
+      printf("%s:%i *** WARNING: Accessing stale data on Device for Field %s[%i]=%f\n",
+             fileName, lineNumber, fieldName.data(), component,
+             static_cast<double>(deviceData(bucketId, ORDER_INDICES(bucketOrdinal, component))));
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void print_stale_data_warning_without_field_values(unsigned bucketId, unsigned bucketOrdinal, int component,
+                                                     const char * fileName, int lineNumber) const
+  {
+    if (lineNumber == -1) {
+      printf("*** WARNING: Accessing stale data on Device for Field %s[%i]\n", fieldName.data(), component);
+    }
+    else {
+      printf("%s:%i *** WARNING: Accessing stale data on Device for Field %s[%i]\n",
+             fileName, lineNumber, fieldName.data(), component);
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void check_stale_field_access(const stk::mesh::FastMeshIndex & index, int component, const char * fileName, int lineNumber) const
+  {
+    anyPotentialDeviceFieldModification() = true;
+
+    if (field_not_updated_after_mesh_mod()) {
+      print_unupdated_field_warning(fileName, lineNumber);
+      return;
+    }
+
+    if (data_is_stale_on_device(index, component)) {
+      print_stale_data_warning(index.bucket_id, index.bucket_ord, component, fileName, lineNumber);
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void check_stale_field_access(const stk::mesh::DeviceMesh::MeshIndex & index, int component, const char * fileName, int lineNumber) const
+  {
+    anyPotentialDeviceFieldModification() = true;
+
+    if (field_not_updated_after_mesh_mod()) {
+      print_unupdated_field_warning(fileName, lineNumber);
+      return;
+    }
+
+    if (data_is_stale_on_device(index, component)) {
+      print_stale_data_warning(index.bucket->bucket_id(), index.bucketOrd, component, fileName, lineNumber);
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void check_stale_field_access(const stk::mesh::FastMeshIndex & index, const char * fileName, int lineNumber) const
+  {
+    anyPotentialDeviceFieldModification() = true;
+
+    if (field_not_updated_after_mesh_mod()) {
+      print_unupdated_field_warning(fileName, lineNumber);
+      return;
+    }
+
+    for (unsigned component = 0; component < get_num_components_per_entity(index); ++component) {
+      if (data_is_stale_on_device(index, component)) {
+        print_stale_data_warning(index.bucket_id, index.bucket_ord, component, fileName, lineNumber);
+      }
+    }
+  }
+
+  STK_INLINE_FUNCTION
+  void check_stale_field_access(const char * fileName, int lineNumber) const
+  {
+    anyPotentialDeviceFieldModification() = true;
+
+    if (field_not_updated_after_mesh_mod()) {
+      print_unupdated_field_warning(fileName, lineNumber);
+      return;
+    }
+
+    for (size_t i = 0; i < lastFieldModLocation.extent(0); ++i) {
+      for (size_t j = 0; j < lastFieldModLocation.extent(1); ++j) {
+        for (size_t k = 0; k < lastFieldModLocation.extent(2); ++k) {
+          if (data_is_stale_on_device(i, ORDER_INDICES(j, k))) {
+            print_stale_data_warning_without_field_values(i, ORDER_INDICES(j, k), fileName, lineNumber);
+          }
+        }
+      }
+    }
   }
 
   template <typename Mesh> KOKKOS_FUNCTION
@@ -527,26 +879,26 @@ public:
   }
 
   KOKKOS_FUNCTION
-  T& get(stk::mesh::FastMeshIndex index, int component,
+  T& get(stk::mesh::FastMeshIndex entity, int component,
          const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER) const
   {
-    fieldSyncDebugger.device_stale_access_check(this, index, component, fileName, lineNumber);
-    return deviceData(deviceSelectedBucketOffset(index.bucket_id), ORDER_INDICES(index.bucket_ord, component));
+    check_stale_field_access(entity, component, fileName, lineNumber);
+    return deviceData(deviceSelectedBucketOffset(entity.bucket_id), ORDER_INDICES(entity.bucket_ord, component));
   }
 
   template <typename MeshIndex> KOKKOS_FUNCTION
-  T& get(MeshIndex index, int component,
+  T& get(MeshIndex entity, int component,
          const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER) const
   {
-    fieldSyncDebugger.device_stale_access_check(this, index, component, fileName, lineNumber);
-    return deviceData(deviceSelectedBucketOffset(index.bucket->bucket_id()), ORDER_INDICES(index.bucketOrd, component));
+    check_stale_field_access(entity, component, fileName, lineNumber);
+    return deviceData(deviceSelectedBucketOffset(entity.bucket->bucket_id()), ORDER_INDICES(entity.bucketOrd, component));
   }
 
   KOKKOS_FUNCTION
   T& operator()(const stk::mesh::FastMeshIndex& index, int component,
                 const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER) const
   {
-    fieldSyncDebugger.device_stale_access_check(this, index, component, fileName, lineNumber);
+    check_stale_field_access(index, component, fileName, lineNumber);
     return deviceData(deviceSelectedBucketOffset(index.bucket_id), ORDER_INDICES(index.bucket_ord, component));
   }
 
@@ -554,7 +906,7 @@ public:
   T& operator()(const MeshIndex& index, int component,
                 const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER) const
   {
-    fieldSyncDebugger.device_stale_access_check(this, index, component, fileName, lineNumber);
+    check_stale_field_access(index, component, fileName, lineNumber);
     return deviceData(deviceSelectedBucketOffset(index.bucket->bucket_id()), ORDER_INDICES(index.bucketOrd, component));
   }
 
@@ -562,7 +914,7 @@ public:
   EntityFieldData<T> operator()(const stk::mesh::FastMeshIndex& index,
                                 const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER) const
   {
-    fieldSyncDebugger.device_stale_access_check(this, index, fileName, lineNumber);
+    check_stale_field_access(index, fileName, lineNumber);
     T* dataPtr = &deviceData(deviceSelectedBucketOffset(index.bucket_id), ORDER_INDICES(index.bucket_ord, 0));
     const unsigned numScalars = get_num_components_per_entity(index);
     return EntityFieldData<T>(dataPtr, numScalars, get_component_stride());
@@ -572,11 +924,62 @@ public:
   void set_all(const Mesh& ngpMesh, const T& value,
                const char * fileName = DEVICE_DEBUG_FILE_NAME, int lineNumber = DEVICE_DEBUG_LINE_NUMBER)
   {
-    fieldSyncDebugger.device_stale_access_check(this, fileName, lineNumber);
+    check_stale_field_access(fileName, lineNumber);
     Kokkos::deep_copy(deviceData, value);
     modify_on_device();
-    fieldSyncDebugger.set_any_potential_device_field_modification(true);
+    anyPotentialDeviceFieldModification() = true;
   }
+
+#else
+
+  template <typename Mesh> KOKKOS_FUNCTION
+  T& get(const Mesh& ngpMesh, stk::mesh::Entity entity, int component) const
+  {
+    stk::mesh::FastMeshIndex fastIndex = ngpMesh.fast_mesh_index(entity);
+    return get(fastIndex, component);
+  }
+
+  KOKKOS_FUNCTION
+  T& get(stk::mesh::FastMeshIndex entity, int component) const
+  {
+    return deviceData(deviceSelectedBucketOffset(entity.bucket_id), ORDER_INDICES(entity.bucket_ord, component));
+  }
+
+  template <typename MeshIndex> KOKKOS_FUNCTION
+  T& get(MeshIndex entity, int component) const
+  {
+    return deviceData(deviceSelectedBucketOffset(entity.bucket->bucket_id()), ORDER_INDICES(entity.bucketOrd, component));
+  }
+
+  KOKKOS_FUNCTION
+  T& operator()(const stk::mesh::FastMeshIndex& index, int component) const
+  {
+    unsigned offset = deviceSelectedBucketOffset(index.bucket_id);
+    return deviceData(offset, ORDER_INDICES(index.bucket_ord, component));
+  }
+
+  template <typename MeshIndex> KOKKOS_FUNCTION
+  T& operator()(const MeshIndex& index, int component) const
+  {
+    return deviceData(deviceSelectedBucketOffset(index.bucket->bucket_id()), ORDER_INDICES(index.bucketOrd, component));
+  }
+
+  KOKKOS_FUNCTION
+  EntityFieldData<T> operator()(const stk::mesh::FastMeshIndex& index) const
+  {
+    T* dataPtr = &deviceData(deviceSelectedBucketOffset(index.bucket_id), ORDER_INDICES(index.bucket_ord, 0));
+    const unsigned numScalars = get_num_components_per_entity(index);
+    return EntityFieldData<T>(dataPtr, numScalars, get_component_stride());
+  }
+
+  template <typename Mesh>
+  void set_all(const Mesh& ngpMesh, const T& value)
+  {
+    Kokkos::deep_copy(deviceData, value);
+    modify_on_device();
+  }
+
+#endif
 
   KOKKOS_FUNCTION
   stk::mesh::EntityRank get_rank() const { return rank; }
@@ -593,7 +996,7 @@ public:
   }
 
   KOKKOS_FUNCTION
-  void swap(DeviceField<T, NgpDebugger> &other)
+  void swap(DeviceField<T> &other)
   {
     swap_views(hostData,   other.hostData);
     swap_views(deviceData, other.deviceData);
@@ -628,24 +1031,6 @@ protected:
     }
 
     return endIndex;
-  }
-
-  void debug_modification_begin() override
-  {
-    fieldSyncDebugger.detect_device_field_modification(this);
-    hostField->get_field_sync_debugger<StkDebugger>().fill_last_mod_location_field_from_device();
-  }
-
-  void debug_modification_end(size_t synchronizationCount) override
-  {
-    hostField->get_field_sync_debugger<StkDebugger>().clear_last_field_value();
-    fieldSyncDebugger.update_debug_storage(this, synchronizationCount);
-    hostField->get_field_sync_debugger<StkDebugger>().fill_last_mod_location_view_from_host();
-  }
-
-  void debug_detect_device_field_modification() override
-  {
-    fieldSyncDebugger.detect_device_field_modification(this);
   }
 
 private:
@@ -713,8 +1098,8 @@ private:
       oldBucketId = buckets[j]->get_ngp_field_bucket_id(get_ordinal());
       newBucketId = buckets[j]->bucket_id();
 
-      copy_moved_host_bucket_data<FieldDataHostViewType<T>, UnmanagedHostInnerView<T>>(hostData, hostData, oldBucketId, newBucketId, numPerEntity);
-      copy_moved_device_bucket_data<FieldDataDeviceViewType<T>, UnmanagedDevInnerView<T>>(deviceData, deviceData, oldBucketId, newBucketId, numPerEntity);
+      copy_moved_host_bucket_data<FieldDataHostViewType, UnmanagedHostInnerView<T>>(hostData, hostData, oldBucketId, newBucketId, numPerEntity);
+      copy_moved_device_bucket_data<FieldDataDeviceViewType, UnmanagedDevInnerView<T>>(deviceData, deviceData, oldBucketId, newBucketId, numPerEntity);
     }
     currBaseIndex = endIndex;
   }
@@ -733,8 +1118,8 @@ private:
 
         if(oldBucketOffset != newBucketOffset && !buckets[i]->get_ngp_field_bucket_is_modified(get_ordinal())) {
           if(oldBucketOffset > newBucketOffset) {
-            copy_moved_host_bucket_data<FieldDataHostViewType<T>, UnmanagedHostInnerView<T>>(hostData, hostData, oldBucketId, newBucketId, numPerEntity);
-            copy_moved_device_bucket_data<FieldDataDeviceViewType<T>, UnmanagedDevInnerView<T>>(deviceData, deviceData, oldBucketId, newBucketId, numPerEntity);
+            copy_moved_host_bucket_data<FieldDataHostViewType, UnmanagedHostInnerView<T>>(hostData, hostData, oldBucketId, newBucketId, numPerEntity);
+            copy_moved_device_bucket_data<FieldDataDeviceViewType, UnmanagedDevInnerView<T>>(deviceData, deviceData, oldBucketId, newBucketId, numPerEntity);
           } else {
             move_unmodified_buckets_in_range_from_back(buckets, numPerEntity, i);
           }
@@ -743,7 +1128,7 @@ private:
     }
   }
 
-  void copy_unmodified_buckets(const BucketVector& buckets, FieldDataDeviceViewType<T> destDevView, FieldDataHostViewType<T> destHostView, unsigned numPerEntity)
+  void copy_unmodified_buckets(const BucketVector& buckets, FieldDataDeviceViewType destDevView, FieldDataHostViewType destHostView, unsigned numPerEntity)
   {
     for(unsigned i = 0; i < buckets.size(); i++) {
       if(hostFieldExistsOnBucket(buckets[i]->bucket_id())) {
@@ -752,8 +1137,8 @@ private:
 
         if(!buckets[i]->get_ngp_field_bucket_is_modified(get_ordinal())) {
           ThrowRequire(hostData.extent(0) != 0 && hostSelectedBucketOffset.extent(0) != 0);
-          copy_moved_host_bucket_data<FieldDataHostViewType<T>, UnmanagedHostInnerView<T>>(destHostView, hostData, oldBucketId, newBucketId, numPerEntity);
-          copy_moved_device_bucket_data<FieldDataDeviceViewType<T>, UnmanagedDevInnerView<T>>(destDevView, deviceData, oldBucketId, newBucketId, numPerEntity);
+          copy_moved_host_bucket_data<FieldDataHostViewType, UnmanagedHostInnerView<T>>(destHostView, hostData, oldBucketId, newBucketId, numPerEntity);
+          copy_moved_device_bucket_data<FieldDataDeviceViewType, UnmanagedDevInnerView<T>>(destDevView, deviceData, oldBucketId, newBucketId, numPerEntity);
         }
       }
     }
@@ -761,8 +1146,11 @@ private:
 
   void fill_host_view(Bucket* bucket, UnmanagedHostInnerView<T>& unHostInnerView, unsigned numPerEntity)
   {
-
-    T* hostFieldPtr = static_cast<T*>(stk::mesh::field_data<FieldBase, EmptyStkFieldSyncDebugger>(*hostField, *bucket));
+#ifdef STK_DEBUG_FIELD_SYNC
+      T* hostFieldPtr = static_cast<T*>(stk::mesh::ngp_debug_field_data(*hostField, *bucket));
+#else
+      T* hostFieldPtr = static_cast<T*>(stk::mesh::field_data(*hostField, *bucket));
+#endif
     unsigned numEntities = bucket->size();
 
     for(unsigned i = 0; i < numEntities; i++) {
@@ -818,24 +1206,23 @@ private:
     Kokkos::deep_copy(unHostInnerView, unBufferInnerView);
   }
 
-  void copy_bucket_from_host_to_device(Bucket* bucket, unsigned maxNumPerEntity, unsigned numContiguousBuckets = 1)
+  void copy_bucket_from_host_to_device(Bucket* bucket, unsigned numPerEntity, unsigned numContiguousBuckets = 1)
   {
     unsigned selectedBucketOffset = newHostSelectedBucketOffset(bucket->bucket_id());
 
     UnmanagedHostInnerView<T> unHostInnerView(&hostData(selectedBucketOffset,0,0),
-                                              bucketCapacity*numContiguousBuckets, maxNumPerEntity);
+                                              bucketCapacity*numContiguousBuckets, numPerEntity);
 
-    auto bucketNumPerEntity = stk::mesh::field_scalars_per_entity(*hostField, *bucket);
-    fill_host_view(bucket, unHostInnerView, bucketNumPerEntity);
+    fill_host_view(bucket, unHostInnerView, numPerEntity);
 
-    T* bufferPtr = deviceBuffer.data() + selectedBucketOffset * bucketCapacity * maxNumPerEntity;
-    UnmanagedDevInnerView<T> unBufferInnerView(bufferPtr, bucketCapacity*numContiguousBuckets, maxNumPerEntity);
+    T* bufferPtr = deviceBuffer.data() + selectedBucketOffset * bucketCapacity * numPerEntity;
+    UnmanagedDevInnerView<T> unBufferInnerView(bufferPtr, bucketCapacity*numContiguousBuckets, numPerEntity);
     Kokkos::deep_copy(unBufferInnerView, unHostInnerView);
 
-    T* devicePtr = deviceData.data() + selectedBucketOffset * bucketCapacity * maxNumPerEntity;
-    UnmanagedDevInnerView<T> unDeviceInnerView(devicePtr, ORDER_INDICES(bucketCapacity*numContiguousBuckets, maxNumPerEntity));
+    T* devicePtr = deviceData.data() + selectedBucketOffset * bucketCapacity * numPerEntity;
+    UnmanagedDevInnerView<T> unDeviceInnerView(devicePtr, ORDER_INDICES(bucketCapacity*numContiguousBuckets, numPerEntity));
 
-    transpose_buffer_into_contiguous_device_data(bucketCapacity*numContiguousBuckets, maxNumPerEntity, unBufferInnerView, unDeviceInnerView);
+    transpose_buffer_into_contiguous_device_data(bucketCapacity*numContiguousBuckets, numPerEntity, unBufferInnerView, unDeviceInnerView);
     Kokkos::fence();
   }
 
@@ -862,12 +1249,17 @@ private:
   void construct_view(const BucketVector& buckets, const std::string& name, unsigned numPerEntity)
   {
     unsigned numBuckets = buckets.size();
-    FieldDataDeviceViewType<T> tempDataDeviceView = FieldDataDeviceViewType<T>(Kokkos::view_alloc(Kokkos::WithoutInitializing, name), numBuckets,
-                                                                               ORDER_INDICES(bucketCapacity, numPerEntity));
-    FieldDataHostViewType<T> tempDataHostView = FieldDataHostViewType<T>(Kokkos::view_alloc(Kokkos::WithoutInitializing, name), numBuckets,
-                                                                         bucketCapacity, numPerEntity);
-    fieldSyncDebugger.initialize_view(tempDataDeviceView);
-    fieldSyncDebugger.initialize_view(tempDataHostView);
+#ifdef STK_DEBUG_FIELD_SYNC
+    FieldDataDeviceViewType tempDataDeviceView = FieldDataDeviceViewType(name, numBuckets,
+                                                                         ORDER_INDICES(bucketCapacity, numPerEntity));
+    FieldDataHostViewType tempDataHostView = FieldDataHostViewType(name, numBuckets,
+                                                                   bucketCapacity, numPerEntity);
+#else
+    FieldDataDeviceViewType tempDataDeviceView = FieldDataDeviceViewType(Kokkos::view_alloc(Kokkos::WithoutInitializing, name), numBuckets,
+                                                                         ORDER_INDICES(bucketCapacity, numPerEntity));
+    FieldDataHostViewType tempDataHostView = FieldDataHostViewType(Kokkos::view_alloc(Kokkos::WithoutInitializing, name), numBuckets,
+                                                                   bucketCapacity, numPerEntity);
+#endif
 
     copy_unmodified_buckets(buckets, tempDataDeviceView, tempDataHostView, numPerEntity);
 
@@ -1065,7 +1457,11 @@ private:
       const unsigned numPerEntity = stk::mesh::field_scalars_per_entity(*hostField, bucket);
       unsigned selectedBucketOffset = newHostSelectedBucketOffset(bucket.bucket_id());
 
-      T* data = static_cast<T*>(stk::mesh::field_data<FieldBase, EmptyStkFieldSyncDebugger>(*hostField, bucket));
+#ifdef STK_DEBUG_FIELD_SYNC
+      T* data = static_cast<T*>(stk::mesh::ngp_debug_field_data(*hostField, bucket));
+#else
+      T* data = static_cast<T*>(stk::mesh::field_data(*hostField, bucket));
+#endif
       for(size_t iEntity=0; iEntity<bucket.size(); iEntity++)
       {
         for(unsigned j=0; j<numPerEntity; j++)
@@ -1076,10 +1472,8 @@ private:
     }
   }
 
-  friend NgpDebugger<T>;
-
-  FieldDataHostViewType<T> hostData;
-  FieldDataDeviceViewType<T> deviceData;
+  FieldDataHostViewType hostData;
+  FieldDataDeviceViewType deviceData;
   FieldDataDeviceUnmanagedViewType deviceBuffer;
   Kokkos::View<bool, Kokkos::HostSpace> needSyncToHost;
   Kokkos::View<bool, Kokkos::HostSpace> needSyncToDevice;
@@ -1104,13 +1498,27 @@ private:
   unsigned maxNumScalarsPerEntity;
   size_t synchronizedCount;
 
-  DeviceField<T, NgpDebugger>* stateFields[MaximumFieldStates];
+  DeviceField<T>* stateFields[MaximumFieldStates];
 
   Kokkos::View<int[1], Kokkos::HostSpace> copyCounter;
   bool userSpecifiedSelector;
   Selector* syncSelector;
 
-  NgpDebugger<T> fieldSyncDebugger;
+#ifdef STK_DEBUG_FIELD_SYNC
+  using FieldNameType = Kokkos::View<char*, UVMMemSpace>;
+  template <typename U> using ScalarUvmType = Kokkos::View<U, UVMMemSpace>;
+
+  FieldNameType fieldName;
+  bool isFieldLayoutConsistent;
+  ScalarUvmType<size_t> hostSynchronizedCount;
+  ScalarUvmType<bool> lostDeviceFieldData;
+  ScalarUvmType<bool> anyPotentialDeviceFieldModification;
+  HostArrayType<unsigned> lastMeshModBucketId;
+  LastFieldModLocationType lastFieldModLocation;
+  FieldDataDeviceViewType lastFieldValue;
+  typename UnsignedViewType::HostMirror debugHostSelectedBucketOffset;
+  UnsignedViewType debugDeviceSelectedBucketOffset;
+#endif
 };
 
 }

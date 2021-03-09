@@ -32,12 +32,14 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/util/ReportHandler.hpp"
-#include <iostream>   // for cout
-#include <sstream>    // for ostringstream, operator<<, basic_ostream, basic_ostream::operator<<
-#include <stdexcept>  // for runtime_error, logic_error, invalid_argument
+#include <stk_util/util/ReportHandler.hpp>
+#include <iostream>                     // for cout
+#include <sstream>                      // for operator<<, basic_ostream, etc
+#include <stdexcept>                    // for runtime_error, logic_error, etc
+
 
 namespace stk {
+
 namespace {
 
 // Global variables used to store the current handlers. We do not want direct

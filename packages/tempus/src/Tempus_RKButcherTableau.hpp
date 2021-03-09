@@ -14,11 +14,16 @@
 #pragma clang system_header
 #endif
 
+#include "Tempus_String_Utilities.hpp"
+
+#include "Teuchos_Assert.hpp"
+#include "Teuchos_as.hpp"
+#include "Teuchos_Describable.hpp"
+#include "Teuchos_VerboseObject.hpp"
+#include "Teuchos_VerboseObjectParameterListHelpers.hpp"
 #include "Teuchos_SerialDenseMatrix.hpp"
 #include "Teuchos_SerialDenseVector.hpp"
-
-#include "Tempus_config.hpp"
-#include "Tempus_String_Utilities.hpp"
+#include "Thyra_MultiVectorStdOps.hpp"
 
 
 namespace Tempus {

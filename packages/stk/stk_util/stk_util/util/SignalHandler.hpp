@@ -35,9 +35,10 @@
 #ifndef STK_UTIL_DIAG_SignalHandler_hpp
 #define STK_UTIL_DIAG_SignalHandler_hpp
 
-#include "stk_util/util/Callback.hpp"  // for CallbackBase
-#include <map>                         // for multimap, multimap<>::value_compare
-#include <string>                      // for string
+#include <map>                          // for multimap, etc
+#include <stk_util/util/Callback.hpp>   // for CallbackBase
+#include <string>                       // for string
+
 
 struct sigaction;
 

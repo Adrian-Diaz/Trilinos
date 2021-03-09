@@ -356,29 +356,29 @@ void check_single_elem_to_point_parametric_mask(stk::ParallelMachine transfer_pm
   }
 }
 
-TEST(GeometricTransferTest, SingleElemToPoint)
+TEST_P(GeometricTransferTest, SingleElemToPoint)
 {
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockSingleElemToSinglePointInterpolate>> test;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, SingleElemToPoint)
+TEST_P(ReducedDependencyGeometricTransferTest, SingleElemToPoint)
 {
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockSingleElemToSinglePointInterpolate>> test;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPoint)
+TEST_P(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPoint)
 {
   if (2 != stk::parallel_machine_size(MPI_COMM_WORLD)) return;
   using TestType = GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockSingleElemToSinglePointInterpolate>>;
   const int color = stk::parallel_machine_rank(MPI_COMM_WORLD) % 2;
   TestType test(MPI_COMM_WORLD, color, {0,1});
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
   check_single_elem_to_point_parametric_mask(MPI_COMM_WORLD, test.meshA.get());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInvertedOwnership)
+TEST_P(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInvertedOwnership)
 {
   if (2 != stk::parallel_machine_size(MPI_COMM_WORLD)) return;
   using TestType = GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockSingleElemToSinglePointInterpolate>>;
@@ -388,11 +388,11 @@ TEST(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInvertedOwners
     test.meshA->m_owning_rank = 1;
   if (test.meshB)
     test.meshB->m_owning_rank = 0;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
   check_single_elem_to_point_parametric_mask(MPI_COMM_WORLD, test.meshA.get());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInSubCommunicator)
+TEST_P(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInSubCommunicator)
 {
   stk::ParallelMachine global_pm = MPI_COMM_WORLD;
   if (3 != stk::parallel_machine_size(global_pm)) return;
@@ -414,7 +414,7 @@ TEST(ReducedDependencyGeometricTransferTest, MpmdSingleElemToPointInSubCommunica
     test.meshA->m_owning_rank = 0;
   if (test.meshB)
     test.meshB->m_owning_rank = 1;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
   check_single_elem_to_point_parametric_mask(transfer_shared_pm, test.meshA.get());
 }
 
@@ -623,83 +623,83 @@ public:
 
 };
 
-TEST(GeometricTransferTest, ThreeElemToTwoPoint)
+TEST_P(GeometricTransferTest, ThreeElemToTwoPoint)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPoint)
+TEST_P(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPoint)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(GeometricTransferTest, ThreeElemToTwoPointChangeDistance)
+TEST_P(GeometricTransferTest, ThreeElemToTwoPointChangeDistance)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 3;
   test.meshA->elemToFilter = 0;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointChangeDistance)
+TEST_P(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointChangeDistance)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 3;
   test.meshA->elemToFilter = 0;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(GeometricTransferTest, ThreeElemToTwoPointRequireExpansion)
+TEST_P(GeometricTransferTest, ThreeElemToTwoPointRequireExpansion)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
   test.meshB->pointA = stk::search::Point<double>(0.5, 1.01, 0.5);
-  test.run(stk::search::SearchMethod::KDTREE, 1.3);
+  test.run(GetParam(), 1.3);
 }
 
-TEST(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointRequireExpansion)
+TEST_P(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointRequireExpansion)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
   test.meshB->pointA = stk::search::Point<double>(0.5, 1.01, 0.5);
-  test.run(stk::search::SearchMethod::KDTREE, 1.3);
+  test.run(GetParam(), 1.3);
 }
 
-TEST(GeometricTransferTest, ThreeElemToTwoPointRequireExpansionChangedDistance)
+TEST_P(GeometricTransferTest, ThreeElemToTwoPointRequireExpansionChangedDistance)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 3;
   test.meshA->elemToFilter = 0;
   test.meshB->pointA = stk::search::Point<double>(0.5, 1.01, 0.5);
-  test.run(stk::search::SearchMethod::KDTREE, 1.3);
+  test.run(GetParam(), 1.3);
 }
 
-TEST(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointRequireExpansionChangedDistance)
+TEST_P(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointRequireExpansionChangedDistance)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshA->elemToUse = 3;
   test.meshA->elemToFilter = 0;
   test.meshB->pointA = stk::search::Point<double>(0.5, 1.01, 0.5);
-  test.run(stk::search::SearchMethod::KDTREE, 1.3);
+  test.run(GetParam(), 1.3);
 }
 
-TEST(GeometricTransferTest, ThreeElemToTwoPointLocalPointIds)
+TEST_P(GeometricTransferTest, ThreeElemToTwoPointLocalPointIds)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::GeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
@@ -708,18 +708,34 @@ TEST(GeometricTransferTest, ThreeElemToTwoPointLocalPointIds)
   test.meshB->point_ids = {1, 1};
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
 
-TEST(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointLocalPointIds)
+TEST_P(ReducedDependencyGeometricTransferTest, ThreeElemToTwoPointLocalPointIds)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) < 3) return;
   GeometricTransferExecutor<stk::transfer::ReducedDependencyGeometricTransfer<MockThreeElemToTwoPointsInerpolate>> test;
   test.meshB->point_ids = {1, 1};
   test.meshA->elemToUse = 0;
   test.meshA->elemToFilter = 3;
-  test.run(stk::search::SearchMethod::KDTREE);
+  test.run(GetParam());
 }
+
+//Note, these tests segfault with stk::search::SearchMethod::MORTON_LINEARIZED_BVH
+//I'm not sure who uses that search method or if it is supposed to be production ready
+#ifdef INSTANTIATE_TEST_SUITE_P
+INSTANTIATE_TEST_SUITE_P(GeometricTransferTest, GeometricTransferTest,
+    ::testing::Values(stk::search::SearchMethod::KDTREE));
+
+INSTANTIATE_TEST_SUITE_P(ReducedDependencyGeometricTransferTest, ReducedDependencyGeometricTransferTest,
+    ::testing::Values(stk::search::SearchMethod::KDTREE));
+#else
+INSTANTIATE_TEST_CASE_P(GeometricTransferTest, GeometricTransferTest,
+    ::testing::Values(stk::search::SearchMethod::KDTREE),);
+
+INSTANTIATE_TEST_CASE_P(ReducedDependencyGeometricTransferTest, ReducedDependencyGeometricTransferTest,
+    ::testing::Values(stk::search::SearchMethod::KDTREE),);
+#endif
 
 }
 }

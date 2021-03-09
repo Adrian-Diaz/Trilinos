@@ -155,7 +155,7 @@ template<typename TRAITS,typename LO,typename GO>
 void panzer::ScatterResidual_Epetra<panzer::Traits::Hessian, TRAITS,LO,GO>::
 evaluateFields(typename TRAITS::EvalData workset)
 {
-  using PHX::View;
+  using Kokkos::View;
   using PHX::Device;
   using std::vector;
 

@@ -3,7 +3,4 @@ ADD_SUBDIRECTORY(Shared)
 ADD_SUBDIRECTORY(Cell)
 ADD_SUBDIRECTORY(Orientation)
 ADD_SUBDIRECTORY(Projection)
-ADD_SUBDIRECTORY(MonolithicExecutable)
-
-ADD_SUBDIRECTORY(performance)
 

@@ -36,9 +36,16 @@
 #ifndef stk_util_parallel_ParallelIndexGapFinder_hpp
 #define stk_util_parallel_ParallelIndexGapFinder_hpp
 
-#include "stk_util/parallel/Parallel.hpp"  // for ParallelMachine
-#include <cstdint>                         // for uint64_t
-#include <vector>                          // for vector
+#include "stk_util/parallel/Parallel.hpp" 
+#include <vector> 
+#include <algorithm> 
+#include "mpi.h"  
+#include <assert.h>
+#include "stk_util/diag/String.hpp"
+#include <stdexcept>            
+#include <math.h>
+#include <stdint.h>
+
 
 namespace stk {
 

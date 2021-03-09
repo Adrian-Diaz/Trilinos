@@ -171,7 +171,7 @@ namespace Xpetra {
     //! The Tpetra::Operator which this class wraps.
     RCP< Epetra_Operator> op_;
 
-  }; // EpetraOperator class
+  }; // TpetraOperator class
 
 
 } // Xpetra namespace

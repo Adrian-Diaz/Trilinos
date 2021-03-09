@@ -92,8 +92,7 @@ class RawMemoryAllocationFailure : public std::bad_alloc {
     CudaMallocManaged,
     CudaHostAlloc,
     HIPMalloc,
-    HIPHostMalloc,
-    SYCLMalloc
+    HIPHostMalloc
   };
 
  private:
@@ -180,7 +179,7 @@ class RawMemoryAllocationFailure : public std::bad_alloc {
 #elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
 // HIP aborts
 #define KOKKOS_IMPL_ABORT_NORETURN [[noreturn]]
-#elif !defined(KOKKOS_ENABLE_OPENMPTARGET) && !defined(__SYCL_DEVICE_ONLY__)
+#elif !defined(KOKKOS_ENABLE_OPENMPTARGET) && !defined(__HCC_ACCELERATOR__)
 // Host aborts
 #define KOKKOS_IMPL_ABORT_NORETURN [[noreturn]]
 #else
@@ -195,10 +194,8 @@ KOKKOS_IMPL_ABORT_NORETURN KOKKOS_INLINE_FUNCTION void abort(
   Kokkos::Impl::cuda_abort(message);
 #elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
   Kokkos::Impl::hip_abort(message);
-#elif !defined(KOKKOS_ENABLE_OPENMPTARGET) && !defined(__SYCL_DEVICE_ONLY__)
+#elif !defined(KOKKOS_ENABLE_OPENMPTARGET) && !defined(__HCC_ACCELERATOR__)
   Kokkos::Impl::host_abort(message);
-#else
-  (void)message;  // FIXME_OPENMPTARGET, FIXME_SYCL
 #endif
 }
 
@@ -208,7 +205,7 @@ KOKKOS_IMPL_ABORT_NORETURN KOKKOS_INLINE_FUNCTION void abort(
 //----------------------------------------------------------------------------
 
 #if !defined(NDEBUG) || defined(KOKKOS_ENFORCE_CONTRACTS) || \
-    defined(KOKKOS_ENABLE_DEBUG)
+    defined(KOKKOS_DEBUG)
 #define KOKKOS_EXPECTS(...)                                               \
   {                                                                       \
     if (!bool(__VA_ARGS__)) {                                             \

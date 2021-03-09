@@ -32,9 +32,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "gtest/gtest.h"
-#include "stk_util/environment/WallTime.hpp"  // for wall_time, wall_dtime
-#include <unistd.h>                           // for sleep
+#include <unistd.h>                     // for sleep
+#include <stk_util/environment/WallTime.hpp>  // for wall_time, wall_dtime
+#include <gtest/gtest.h>
+
+
 
 
 TEST(UnitTestWallTime, UnitTest)

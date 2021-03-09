@@ -13,7 +13,6 @@
 #include "Teuchos_Time.hpp"
 #include "Teuchos_VerboseObject.hpp"
 
-#include "Tempus_config.hpp"
 
 namespace Tempus {
 

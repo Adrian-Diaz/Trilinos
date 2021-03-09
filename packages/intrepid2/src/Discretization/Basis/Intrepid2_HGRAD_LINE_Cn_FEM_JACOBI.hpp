@@ -252,7 +252,7 @@ namespace Intrepid2 {
     void
     getValues(       OutputViewType outputValues,
                const PointViewType  inputPoints,
-               const EOperator operatorType = OPERATOR_VALUE ) const override {
+               const EOperator operatorType = OPERATOR_VALUE ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       Intrepid2::getValues_HGRAD_Args(outputValues,
                                       inputPoints,

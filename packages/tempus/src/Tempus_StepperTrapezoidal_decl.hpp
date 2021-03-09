@@ -9,7 +9,6 @@
 #ifndef Tempus_StepperTrapezoidal_decl_hpp
 #define Tempus_StepperTrapezoidal_decl_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_StepperImplicit.hpp"
 #include "Tempus_WrapperModelEvaluator.hpp"
 #include "Tempus_StepperTrapezoidalAppAction.hpp"
@@ -191,15 +190,6 @@ private:
   Teuchos::RCP<const Thyra::VectorBase<Scalar> > xOld_;
   Teuchos::RCP<const Thyra::VectorBase<Scalar> > xDotOld_;
 };
-
-
-/// Nonmember constructor - ModelEvaluator and ParameterList
-// ------------------------------------------------------------------------
-template<class Scalar>
-Teuchos::RCP<StepperTrapezoidal<Scalar> >
-createStepperTrapezoidal(
-  const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
-  Teuchos::RCP<Teuchos::ParameterList> pl);
 
 
 } // namespace Tempus

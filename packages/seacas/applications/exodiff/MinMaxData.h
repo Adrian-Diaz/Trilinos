@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2021 National Technology & Engineering Solutions
+// Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -6,22 +6,20 @@
 #include <cmath>
 
 enum class ToleranceType {
-  mm_unknown   = 0,
-  mm_time      = 1, // Only val and step valid.
-  mm_global    = 2, // Only val and step valid.
-  mm_nodal     = 3, // Only val, step, and id valid.
-  mm_element   = 4, // All fields valid for the rest.
-  mm_sideset   = 5,
-  mm_nodeset   = 6,
-  mm_edgeblock = 7,
-  mm_faceblock = 8,
-  mm_elematt   = 9 // step not valid
+  mm_unknown = 0,
+  mm_time    = 1, // Only val and step valid.
+  mm_global  = 2, // Only val and step valid.
+  mm_nodal   = 3, // Only val, step, and id valid.
+  mm_element = 4, // All fields valid for the rest.
+  mm_sideset = 5,
+  mm_nodeset = 6,
+  mm_elematt = 7 // step not valid
 };
 
 class DiffData
 {
 public:
-  DiffData() = default;
+  DiffData() {}
 
   void set_max(double d, double val_1, double val_2, size_t id_ = 0, size_t blk_ = 0)
   {
@@ -46,7 +44,7 @@ public:
 class MinMaxData
 {
 public:
-  MinMaxData() = default;
+  MinMaxData() : min_val(DBL_MAX) {}
 
   void spec_min_max(double val, int step, size_t id = 0, size_t blk = 0)
   {
@@ -65,7 +63,7 @@ public:
     }
   }
 
-  double min_val{DBL_MAX};
+  double min_val{};
   int    min_step{0};
   size_t min_id{0};
   size_t min_blk{0};

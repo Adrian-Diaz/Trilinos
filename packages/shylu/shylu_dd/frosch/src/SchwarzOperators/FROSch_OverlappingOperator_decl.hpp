@@ -74,8 +74,7 @@ namespace FROSch {
 
         using ParameterListPtr      = typename SchwarzOperator<SC,LO,GO,NO>::ParameterListPtr;
 
-        using SolverPtr             = typename SchwarzOperator<SC,LO,GO,NO>::SolverPtr;
-        using SolverFactoryPtr      = typename SchwarzOperator<SC,LO,GO,NO>::SolverFactoryPtr;
+        using SubdomainSolverPtr    = typename SchwarzOperator<SC,LO,GO,NO>::SubdomainSolverPtr;
 
         using SCVecPtr              = typename SchwarzOperator<SC,LO,GO,NO>::SCVecPtr;
         using ConstSCVecPtr         = typename SchwarzOperator<SC,LO,GO,NO>::ConstSCVecPtr;
@@ -109,8 +108,8 @@ namespace FROSch {
         virtual int computeOverlappingOperator();
 
         virtual int updateLocalOverlappingMatrices() = 0;
-
-
+        
+        
         ConstXMatrixPtr OverlappingMatrix_;
 
         ConstXMapPtr OverlappingMap_;
@@ -123,7 +122,7 @@ namespace FROSch {
 
         XImportPtr Scatter_;
 
-        SolverPtr SubdomainSolver_;
+        SubdomainSolverPtr SubdomainSolver_;
 
         XMultiVectorPtr Multiplicity_;
 

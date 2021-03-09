@@ -51,8 +51,7 @@
 
 #include <HIP/Kokkos_HIP_Error.hpp>
 
-namespace Kokkos {
-namespace Impl {
+// FIXME_HIP We cannot use global variables defined in a namespace
 
 struct HIPLockArrays {
   std::int32_t* atomic;
@@ -63,6 +62,9 @@ struct HIPLockArrays {
 /// \brief This global variable in Host space is the central definition
 ///        of these arrays.
 extern HIPLockArrays g_host_hip_lock_arrays;
+
+namespace Kokkos {
+namespace Impl {
 
 /// \brief After this call, the g_host_hip_lock_arrays variable has
 ///        valid, initialized arrays.
@@ -75,6 +77,9 @@ void initialize_host_hip_lock_arrays();
 ///
 /// This call is idempotent.
 void finalize_host_hip_lock_arrays();
+
+}  // namespace Impl
+}  // namespace Kokkos
 
 #if defined(__HIPCC__)
 
@@ -102,6 +107,9 @@ __device__
     HIPLockArrays g_device_hip_lock_arrays;
 
 #define KOKKOS_IMPL_HIP_SPACE_ATOMIC_MASK 0x1FFFF
+
+namespace Kokkos {
+namespace Impl {
 
 /// \brief Acquire a lock for the address
 ///
@@ -144,15 +152,14 @@ inline int eliminate_warning_for_lock_array() { return lock_array_copied; }
 /* Dan Ibanez: it is critical that this code be a macro, so that it will
    capture the right address for g_device_hip_lock_arrays!
    putting this in an inline function will NOT do the right thing! */
-#define KOKKOS_COPY_HIP_LOCK_ARRAYS_TO_DEVICE()                 \
-  {                                                             \
-    if (::Kokkos::Impl::lock_array_copied == 0) {               \
-      HIP_SAFE_CALL(hipMemcpyToSymbol(                          \
-          HIP_SYMBOL(::Kokkos::Impl::g_device_hip_lock_arrays), \
-          &::Kokkos::Impl::g_host_hip_lock_arrays,              \
-          sizeof(::Kokkos::Impl::HIPLockArrays)));              \
-    }                                                           \
-    ::Kokkos::Impl::lock_array_copied = 1;                      \
+#define KOKKOS_COPY_HIP_LOCK_ARRAYS_TO_DEVICE()                             \
+  {                                                                         \
+    if (::Kokkos::Impl::lock_array_copied == 0) {                           \
+      HIP_SAFE_CALL(hipMemcpyToSymbol(HIP_SYMBOL(g_device_hip_lock_arrays), \
+                                      &g_host_hip_lock_arrays,              \
+                                      sizeof(HIPLockArrays)));              \
+    }                                                                       \
+    lock_array_copied = 1;                                                  \
   }
 
 #ifdef KOKKOS_ENABLE_HIP_RELOCATABLE_DEVICE_CODE

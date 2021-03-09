@@ -19,8 +19,7 @@ namespace Tempus {
   // Nonmember constructor from ParameterList.
   template Teuchos::RCP<TimeStepControl<double> >
   createTimeStepControl(
-    Teuchos::RCP<Teuchos::ParameterList> const& pList,
-    bool runInitialize);
+    Teuchos::RCP<Teuchos::ParameterList> const& pList);
 
 }
 

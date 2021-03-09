@@ -616,7 +616,8 @@ std::string get_role_string(Ioss::Field::RoleType role)
       return "REDUCTION";
     case Ioss::Field::RoleType::TRANSIENT:
       return "TRANSIENT";
-    default:break;
+    default:
+      return "";
   }
   return "";
 }

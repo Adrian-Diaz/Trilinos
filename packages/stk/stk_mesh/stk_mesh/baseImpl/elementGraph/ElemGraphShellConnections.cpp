@@ -100,10 +100,7 @@ void delete_non_shell_graph_edges(GraphInfo &graphInfo, const stk::mesh::impl::E
 {
     for(const stk::mesh::GraphEdge& graphEdge : graphInfo.graph.get_edges_for_element_side(elementSidePair.first, elementSidePair.second))
     {
-        bool thisIsShell = is_this_element_shell(graphEdge, graphInfo.elementTopologies);
-        bool thatIsShell = is_other_element_shell(graphEdge, graphInfo.elementTopologies, graphInfo.parGraphInfo);
-
-        if(!thisIsShell && !thatIsShell)
+        if(!is_this_element_shell(graphEdge, graphInfo.elementTopologies) && !is_other_element_shell(graphEdge, graphInfo.elementTopologies, graphInfo.parGraphInfo))
         {
             if(!impl::is_local_element(graphEdge.elem2()))
                 graphInfo.parGraphInfo.erase_parallel_info_for_graph_edge(graphEdge);

@@ -1,10 +1,12 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-#tribits_add_executable(
-#  UnitTests
-#  SOURCES
-#    Compadre_UnitTests.cpp
-#  ) # end tribits_add_executable
+if(Compadre_USE_LAPACK)
+  tribits_add_executable(
+    LAPACK_Test
+    SOURCES
+      UnitTest_ThreadedLapack.cpp
+    ) # end tribits_add_executable
+endif()
 
 tribits_add_executable(
   GMLS_Host_Test
@@ -84,28 +86,36 @@ tribits_add_executable(
     NeighborSearchTest.cpp
   ) # end tribits_add_executable
 
-#set(testName Compadre_Unit_Tests)
-#tribits_add_test(
-#  UnitTests
-#  NAME
-#    ${testName}
-#  COMM serial mpi
-#  NUM_MPI_PROCS 1
-#  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-#  ) # end tribits_add_test
-#if (${testName}_CREATED)
-#  set_tests_properties(
-#    ${${testName}_CREATED}
-#    PROPERTIES
-#      LABELS
-#        "UnitTest;unittest;Unit;unit"
-#      TIMEOUT
-#        60
-#    ) # end set_tests_properties
-#endif() # test created
+
+# Test if LAPACK+BLAS are compatible for use in the toolkit
+if(Compadre_USE_LAPACK)
+  set(testName LAPACK_THREADSAFE)
+  tribits_add_test(
+    LAPACK_Test
+    NAME
+      ${testName}
+    COMM serial mpi
+    NUM_MPI_PROCS 1
+    ARGS
+      "--kokkos-threads=8 --verbose --output-on-failure"
+    ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+    ) # end tribits_add_test
+  if (${testName}_CREATED)
+    set_tests_properties(
+      ${${testName}_CREATED}
+      PROPERTIES
+        LABELS
+          "UnitTest;unit;lapack;Lapack;LAPACK;kokkos"
+        TIMEOUT
+          5
+        SKIP_RETURN_CODE
+          77
+      ) # end set_tests_properties
+  endif() # test created
+endif() # LAPACK being used
 
 # Host views tests for GMLS
-set(testName GMLS_Host_Dim3_QR)
+set(testName GMLS_Host_Dim3_SVD)
 tribits_add_test(
   GMLS_Host_Test
   NAME
@@ -113,7 +123,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 3 --kokkos-threads=2"
+    "4 200 3 0 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -121,13 +131,13 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         60
     ) # end set_tests_properties
 endif() # test created
 
-set(testName GMLS_Host_Dim2_QR)
+set(testName GMLS_Host_Dim2_SVD)
 tribits_add_test(
   GMLS_Host_Test
   NAME
@@ -135,7 +145,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 2 --kokkos-threads=2"
+    "4 200 2 0 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -143,13 +153,13 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         20
     ) # end set_tests_properties
 endif() # test created
 
-set(testName GMLS_Host_Dim1_QR)
+set(testName GMLS_Host_Dim1_SVD)
 tribits_add_test(
   GMLS_Host_Test
   NAME
@@ -157,7 +167,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 1 --kokkos-threads=2"
+    "4 200 1 0 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -165,7 +175,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         20
     ) # end set_tests_properties
@@ -180,7 +190,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 3 --kokkos-threads=2"
+    "4 200 3 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -188,7 +198,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -202,7 +212,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 2 --kokkos-threads=2"
+    "4 200 2 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -210,7 +220,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -224,7 +234,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 1 --kokkos-threads=2"
+    "4 200 1 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -232,7 +242,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -247,7 +257,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 3 --solver LU --kokkos-threads=2"
+    "4 200 3 2 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -255,7 +265,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -270,7 +280,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 200 --d 3 --solver LU --constraint NEUMANN_GRAD_SCALAR --kokkos-threads=2"
+    "3 200 3 2 0 1 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -278,14 +288,14 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
 endif() # test created
 
-## Device views tests with Neumann BC for STAGGERED GMLS - QR solver
-#set(testName GMLS_StaggeredNeumannGradScalar_Dim3_QR)
+## Device views tests with Neumann BC for STAGGERED GMLS - SVD solver
+#set(testName GMLS_StaggeredNeumannGradScalar_Dim3_SVD)
 #tribits_add_test(
 #  GMLS_Staggered
 #  NAME
@@ -301,7 +311,7 @@ endif() # test created
 #    ${${testName}_CREATED}
 #    PROPERTIES
 #      LABELS
-#        "IntegrationTest;integration;kokkos;staggered"
+#        "UnitTest;unit;kokkos;staggered"
 #      TIMEOUT
 #        10
 #    ) # end set_tests_properties
@@ -316,7 +326,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 20 --d 3 --kokkos-threads=2"
+    "3 20 3 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -324,7 +334,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;vector"
+        "UnitTest;unit;kokkos;vector"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -338,7 +348,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 20 --d 2 --kokkos-threads=2"
+    "3 20 2 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -346,7 +356,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;vector"
+        "UnitTest;unit;kokkos;vector"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -360,7 +370,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 20 --d 1 --kokkos-threads=2"
+    "3 20 1 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -368,7 +378,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;vector"
+        "UnitTest;unit;kokkos;vector"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -383,7 +393,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 200 --d 3 --solver LU --kokkos-threads=2"
+    "3 200 3 2 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -391,7 +401,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;vector"
+        "UnitTest;unit;kokkos;vector"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -407,7 +417,7 @@ tribits_add_test(
   NUM_MPI_PROCS 1
   COMM serial mpi
   ARGS
-    "--p 4 --nt 200 --d 2 --kokkos-threads=2"
+    "4 200 2 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -415,7 +425,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         20
     ) # end set_tests_properties
@@ -429,7 +439,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 1 --kokkos-threads=2"
+    "4 200 1 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -437,7 +447,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         20
     ) # end set_tests_properties
@@ -452,7 +462,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 3 --kokkos-threads=2"
+    "4 200 3 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -460,7 +470,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos"
+        "UnitTest;unit;kokkos"
       TIMEOUT
         10
     ) # end set_tests_properties
@@ -476,7 +486,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 100 --d 3 --kokkos-threads=4"
+    "3 100 3 1 0 0 --kokkos-threads=4"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -484,7 +494,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;staggered"
+        "UnitTest;unit;kokkos;staggered"
       TIMEOUT
         60
     ) # end set_tests_properties
@@ -500,7 +510,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 200 --d 2 --kokkos-threads=2"
+    "3 200 2 1 0 0 --kokkos-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -508,7 +518,7 @@ if (${testName}_CREATED)
     ${${testName}_CREATED}
     PROPERTIES
       LABELS
-        "IntegrationTest;integration;kokkos;staggered"
+        "UnitTest;unit;kokkos;staggered"
       TIMEOUT
         20
     ) # end set_tests_properties
@@ -545,15 +555,15 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
   endif() # test created
 
   # Divergence-free basis test for GMLS on non-manifold
-  # Note: QR is needed to be used here due to the null space introduced
-  set(testName GMLS_DivergenceFree_Dim3_P3_QR)
+  # Note: SVD is needed to be used here due to the null space introduced
+  set(testName GMLS_DivergenceFree_Dim3_P3_SVD)
   tribits_add_test(
     GMLS_Divergence_Test
     NAME
       ${testName}
     NUM_MPI_PROCS 1
     ARGS
-      "--p 3 --nt 200 --d 3 --kokkos-threads=2"
+      "3 200 3 0 0 0 --kokkos-threads=2"
     ADDED_TESTS_NAMES_OUT ${testName}_CREATED
     ) # end tribits_add_test
   if (${testName}_CREATED)
@@ -561,12 +571,12 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       ${${testName}_CREATED}
       PROPERTIES
         LABELS
-          "IntegrationTest;integration;kokkos;divergencefree;qr;batched"
+          "UnitTest;unit;kokkos;divergencefree;svd;batched"
         TIMEOUT
           60
       ) # end set_tests_properties
   endif() # test created
-  #set(testName GMLS_DivergenceFree_Dim3_P2_QR)
+  #set(testName GMLS_DivergenceFree_Dim3_P2_SVD)
   #tribits_add_test(
   #  GMLS_Divergence_Test
   #  NAME
@@ -581,21 +591,21 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
   #    ${${testName}_CREATED}
   #    PROPERTIES
   #      LABELS
-  #        "IntegrationTest;integration;kokkos;divergencefree;qr"
+  #        "UnitTest;unit;kokkos;divergencefree;svd"
   #      TIMEOUT
   #        60
   #    ) # end set_tests_properties
   #endif() # test created
 
   # Divergence-free basis test for GMLS on non-manifold
-  set(testName GMLS_DivergenceFree_Dim2_P3_QR)
+  set(testName GMLS_DivergenceFree_Dim2_P3_SVD)
   tribits_add_test(
     GMLS_Divergence_Test
     NAME
       ${testName}
     NUM_MPI_PROCS 1
     ARGS
-      "--p 3 --nt 200 --d 2 --kokkos-threads=2"
+      "3 200 2 0 0 0 --kokkos-threads=2"
     ADDED_TESTS_NAMES_OUT ${testName}_CREATED
     ) # end tribits_add_test
   if (${testName}_CREATED)
@@ -603,12 +613,12 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
       ${${testName}_CREATED}
       PROPERTIES
         LABELS
-          "IntegrationTest;integration;kokkos;divergencefree;qr;batched"
+          "UnitTest;unit;kokkos;divergencefree;svd;batched"
         TIMEOUT
           60
       ) # end set_tests_properties
   endif() # test created
-  #set(testName GMLS_DivergenceFree_Dim2_P2_QR)
+  #set(testName GMLS_DivergenceFree_Dim2_P2_SVD)
   #tribits_add_test(
   #  GMLS_Divergence_Test
   #  NAME
@@ -623,7 +633,7 @@ if (NOT(Compadre_DEBUG OR Compadre_EXTREME_DEBUG))
   #    ${${testName}_CREATED}
   #    PROPERTIES
   #      LABELS
-  #        "IntegrationTest;integration;kokkos;divergencefree;qr"
+  #        "UnitTest;unit;kokkos;divergencefree;svd"
   #      TIMEOUT
   #        60
   #    ) # end set_tests_properties
@@ -640,7 +650,7 @@ configure_file(
 set(testName GMLS_Manifold_Refinement_Study_QR)
 TRIBITS_ADD_ADVANCED_TEST(
   ${testName}
-  TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=QR --in-trilinos=True
+  TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=1 --in-trilinos=True
   PASS_REGULAR_EXPRESSION "Passed."
   COMM mpi serial
   ADDED_TEST_NAME_OUT ${testName}_CREATED
@@ -661,7 +671,7 @@ endif() # test created
 set(testName GMLS_Manifold_Refinement_Study_LU)
 TRIBITS_ADD_ADVANCED_TEST(
   ${testName}
-  TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=LU --in-trilinos=True
+  TEST_0 CMND ${PYTHON_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=2 --in-trilinos=True
   PASS_REGULAR_EXPRESSION "Passed."
   COMM mpi serial
   ADDED_TEST_NAME_OUT ${testName}_CREATED

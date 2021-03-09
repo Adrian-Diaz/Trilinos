@@ -32,9 +32,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "gtest/gtest.h"
-#include "stk_util/util/SortAndUnique.hpp"  // for insert_keep_sorted_and_unique
-#include <vector>                           // for vector
+#include <gtest/gtest.h>
+#include <stk_util/util/SortAndUnique.hpp>
 
 
 TEST( SortAndUnique, insert_keep_sorted_and_unique_overlapping_vecs)

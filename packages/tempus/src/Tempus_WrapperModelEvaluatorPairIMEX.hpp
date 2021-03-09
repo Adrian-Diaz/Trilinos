@@ -9,7 +9,6 @@
 #ifndef Tempus_ModelEvaluatorPairIMEX_hpp
 #define Tempus_ModelEvaluatorPairIMEX_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_WrapperModelEvaluator.hpp"
 
 

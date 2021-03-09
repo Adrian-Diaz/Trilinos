@@ -177,7 +177,7 @@ namespace panzer
       /**
        *  \brief Post-Registration Setup.
        *
-       *  Get the PHX::Views of the field multipliers, and determine the
+       *  Get the Kokkos::Views of the field multipliers, and determine the
        *  index in the Workset bases for our particular basis name.
        *
        *  \param[in] sd Essentially a list of `Workset`s, which are collections
@@ -289,11 +289,12 @@ namespace panzer
       fieldMults_;
 
       /**
-       *  \brief The `PHX::View` representation of the (possibly empty) list
+       *  \brief The `Kokkos::View` representation of the (possibly empty) list
        *         of fields that are multipliers out in front of the integral
        *         (\f$ a(x) \f$, \f$ b(x) \f$, etc.).
        */
-    PHX::View<PHX::View<const ScalarT**>*> kokkosFieldMults_;
+    Kokkos::View<Kokkos::View<const ScalarT**,
+      typename PHX::DevLayout<ScalarT>::type, PHX::Device>*> kokkosFieldMults_;
 
       /**
        *  \brief The number of quadrature points for each cell.

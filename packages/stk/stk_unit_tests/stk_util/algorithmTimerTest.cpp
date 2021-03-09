@@ -1,9 +1,7 @@
-#include "gtest/gtest.h"
-#include "stk_unit_test_utils/algorithmTimer.hpp"  // for RunInfo, print_run_info, time_algorithm
-#include "stk_unit_test_utils/getOption.h"         // for get_command_line_option
-#include "stk_util/parallel/Parallel.hpp"          // for parallel_machine_size, MPI_COMM_WORLD
-#include <cstddef>                                 // for size_t
-#include <iostream>                                // for cerr
+#include <stk_unit_test_utils/algorithmTimer.hpp>
+#include <stk_unit_test_utils/getOption.h>
+#include <gtest/gtest.h>                // for TEST, AssertHelper, etc
+
 
 TEST(RunTimer, runs)
 {

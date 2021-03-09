@@ -35,7 +35,6 @@ KOKKOS_ARCH_OPTION(ARMV80          HOST "ARMv8.0 Compatible CPU")
 KOKKOS_ARCH_OPTION(ARMV81          HOST "ARMv8.1 Compatible CPU")
 KOKKOS_ARCH_OPTION(ARMV8_THUNDERX  HOST "ARMv8 Cavium ThunderX CPU")
 KOKKOS_ARCH_OPTION(ARMV8_THUNDERX2 HOST "ARMv8 Cavium ThunderX2 CPU")
-KOKKOS_ARCH_OPTION(A64FX           HOST "ARMv8.2 with SVE Suport")
 KOKKOS_ARCH_OPTION(WSM             HOST "Intel Westmere CPU")
 KOKKOS_ARCH_OPTION(SNB             HOST "Intel Sandy/Ivy Bridge CPUs")
 KOKKOS_ARCH_OPTION(HSW             HOST "Intel Haswell CPUs")
@@ -64,7 +63,6 @@ KOKKOS_ARCH_OPTION(ZEN             HOST "AMD Zen architecture")
 KOKKOS_ARCH_OPTION(ZEN2            HOST "AMD Zen2 architecture")
 KOKKOS_ARCH_OPTION(VEGA900         GPU  "AMD GPU MI25 GFX900")
 KOKKOS_ARCH_OPTION(VEGA906         GPU  "AMD GPU MI50/MI60 GFX906")
-KOKKOS_ARCH_OPTION(VEGA908         GPU  "AMD GPU")
 KOKKOS_ARCH_OPTION(INTEL_GEN       GPU  "Intel GPUs Gen9+")
 
 
@@ -73,11 +71,6 @@ IF(KOKKOS_ENABLE_COMPILER_WARNINGS)
   SET(COMMON_WARNINGS
     "-Wall" "-Wunused-parameter" "-Wshadow" "-pedantic"
     "-Wsign-compare" "-Wtype-limits" "-Wuninitialized")
-
-  # OpenMPTarget compilers give erroneous warnings about sign comparison in loops
-  IF(KOKKOS_ENABLE_OPENMPTARGET)
-    LIST(REMOVE_ITEM COMMON_WARNINGS "-Wsign-compare")
-  ENDIF()
 
   SET(GNU_WARNINGS "-Wempty-body" "-Wclobbered" "-Wignored-qualifiers"
     ${COMMON_WARNINGS})
@@ -113,12 +106,6 @@ ENDIF()
 IF (KOKKOS_CXX_COMPILER_ID STREQUAL Clang)
   SET(CUDA_ARCH_FLAG "--cuda-gpu-arch")
   GLOBAL_APPEND(KOKKOS_CUDA_OPTIONS -x cuda)
-  # Kokkos_CUDA_DIR has priority over CUDAToolkit_BIN_DIR
-  IF (Kokkos_CUDA_DIR)
-    GLOBAL_APPEND(KOKKOS_CUDA_OPTIONS --cuda-path=${Kokkos_CUDA_DIR})
-  ELSEIF(CUDAToolkit_BIN_DIR)
-    GLOBAL_APPEND(KOKKOS_CUDA_OPTIONS --cuda-path=${CUDAToolkit_BIN_DIR}/..)
-  ENDIF()
   IF (KOKKOS_ENABLE_CUDA)
      SET(KOKKOS_IMPL_CUDA_CLANG_WORKAROUND ON CACHE BOOL "enable CUDA Clang workarounds" FORCE)
   ENDIF()
@@ -177,12 +164,6 @@ IF (KOKKOS_ARCH_ARMV8_THUNDERX2)
     Cray NO-VALUE-SPECIFIED
     PGI  NO-VALUE-SPECIFIED
     DEFAULT -mcpu=thunderx2t99 -mtune=thunderx2t99
-  )
-ENDIF()
-
-IF (KOKKOS_ARCH_A64FX)
-  COMPILER_SPECIFIC_FLAGS(
-    DEFAULT -march=armv8.2-a+sve
   )
 ENDIF()
 
@@ -346,16 +327,6 @@ IF (Kokkos_ENABLE_HIP)
 ENDIF()
 
 
-IF (Kokkos_ENABLE_SYCL)
-  COMPILER_SPECIFIC_FLAGS(
-    DEFAULT -fsycl
-  )
-  COMPILER_SPECIFIC_OPTIONS(
-    DEFAULT -fsycl-unnamed-lambda
-  )
-ENDIF()
-
-
 SET(CUDA_ARCH_ALREADY_SPECIFIED "")
 FUNCTION(CHECK_CUDA_ARCH ARCH FLAG)
   IF(KOKKOS_ARCH_${ARCH})
@@ -421,7 +392,6 @@ ENDFUNCTION()
 #to the corresponding flag name if ON
 CHECK_AMDGPU_ARCH(VEGA900 gfx900) # Radeon Instinct MI25
 CHECK_AMDGPU_ARCH(VEGA906 gfx906) # Radeon Instinct MI50 and MI60
-CHECK_AMDGPU_ARCH(VEGA908 gfx908)
 
 IF(KOKKOS_ENABLE_HIP AND NOT AMDGPU_ARCH_ALREADY_SPECIFIED)
   MESSAGE(SEND_ERROR "HIP enabled but no AMD GPU architecture currently enabled. "
@@ -507,53 +477,35 @@ ENDIF()
 
 #CMake verbose is kind of pointless
 #Let's just always print things
-MESSAGE(STATUS "Built-in Execution Spaces:")
+MESSAGE(STATUS "Execution Spaces:")
 
-FOREACH (_BACKEND Cuda OpenMPTarget HIP SYCL)
-  STRING(TOUPPER ${_BACKEND} UC_BACKEND)
-  IF(KOKKOS_ENABLE_${UC_BACKEND})
+FOREACH (_BACKEND CUDA OPENMPTARGET HIP)
+  IF(KOKKOS_ENABLE_${_BACKEND})
     IF(_DEVICE_PARALLEL)
       MESSAGE(FATAL_ERROR "Multiple device parallel execution spaces are not allowed! "
                           "Trying to enable execution space ${_BACKEND}, "
                           "but execution space ${_DEVICE_PARALLEL} is already enabled. "
                           "Remove the CMakeCache.txt file and re-configure.")
     ENDIF()
-    IF (${_BACKEND} STREQUAL "Cuda")
-       IF(KOKKOS_ENABLE_CUDA_UVM)
-          SET(_DEFAULT_DEVICE_MEMSPACE "Kokkos::${_BACKEND}UVMSpace")
-       ELSE()
-          SET(_DEFAULT_DEVICE_MEMSPACE "Kokkos::${_BACKEND}Space")
-       ENDIF()
-       SET(_DEVICE_PARALLEL "Kokkos::${_BACKEND}")
-    ELSE()
-       SET(_DEFAULT_DEVICE_MEMSPACE "Kokkos::Experimental::${_BACKEND}Space")
-       SET(_DEVICE_PARALLEL "Kokkos::Experimental::${_BACKEND}")
-    ENDIF()
+    SET(_DEVICE_PARALLEL ${_BACKEND})
   ENDIF()
 ENDFOREACH()
 IF(NOT _DEVICE_PARALLEL)
-  SET(_DEVICE_PARALLEL "NoTypeDefined")
-  SET(_DEFAULT_DEVICE_MEMSPACE "NoTypeDefined")
+  SET(_DEVICE_PARALLEL "NONE")
 ENDIF()
 MESSAGE(STATUS "    Device Parallel: ${_DEVICE_PARALLEL}")
-IF(KOKKOS_ENABLE_PTHREAD)
-  SET(KOKKOS_ENABLE_THREADS ON)
-ENDIF()
+UNSET(_DEVICE_PARALLEL)
 
-FOREACH (_BACKEND OpenMP Threads HPX)
-  STRING(TOUPPER ${_BACKEND} UC_BACKEND)
-  IF(KOKKOS_ENABLE_${UC_BACKEND})
+
+FOREACH (_BACKEND OPENMP PTHREAD HPX)
+  IF(KOKKOS_ENABLE_${_BACKEND})
     IF(_HOST_PARALLEL)
       MESSAGE(FATAL_ERROR "Multiple host parallel execution spaces are not allowed! "
                           "Trying to enable execution space ${_BACKEND}, "
                           "but execution space ${_HOST_PARALLEL} is already enabled. "
                           "Remove the CMakeCache.txt file and re-configure.")
     ENDIF()
-    IF (${_BACKEND} STREQUAL "HPX")
-       SET(_HOST_PARALLEL "Kokkos::Experimental::${_BACKEND}")
-    ELSE()
-       SET(_HOST_PARALLEL "Kokkos::${_BACKEND}")
-    ENDIF()
+    SET(_HOST_PARALLEL ${_BACKEND})
   ENDIF()
 ENDFOREACH()
 
@@ -563,11 +515,14 @@ IF(NOT _HOST_PARALLEL AND NOT KOKKOS_ENABLE_SERIAL)
                       "and Kokkos_ENABLE_SERIAL=OFF.")
 ENDIF()
 
-IF(_HOST_PARALLEL)
+IF(NOT _HOST_PARALLEL)
+  SET(_HOST_PARALLEL "NONE")
+ENDIF()
 MESSAGE(STATUS "    Host Parallel: ${_HOST_PARALLEL}")
-ELSE()
-  SET(_HOST_PARALLEL "NoTypeDefined")
-  MESSAGE(STATUS "    Host Parallel: NoTypeDefined")
+UNSET(_HOST_PARALLEL)
+
+IF(KOKKOS_ENABLE_PTHREAD)
+  SET(KOKKOS_ENABLE_THREADS ON)
 ENDIF()
 
 IF(KOKKOS_ENABLE_SERIAL)

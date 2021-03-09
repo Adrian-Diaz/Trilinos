@@ -13,10 +13,10 @@
 
 #include "Thyra_VectorStdOps.hpp"
 
+#include "Tempus_StepperFactory.hpp"
 #include "Tempus_UnitTest_Utils.hpp"
 #include "Tempus_StepperRKButcherTableau.hpp"
 
-#include "Tempus_StepperForwardEuler.hpp"
 #include "Tempus_StepperForwardEulerModifierBase.hpp"
 #include "Tempus_StepperForwardEulerModifierXBase.hpp"
 #include "Tempus_StepperForwardEulerObserverBase.hpp"
@@ -41,6 +41,7 @@ using Teuchos::ParameterList;
 using Teuchos::sublist;
 using Teuchos::getParametersFromXmlFile;
 
+using Tempus::StepperFactory;
 using Tempus::StepperExplicitRK;
 
 // Comment out any of the following tests to exclude from build/run.
@@ -203,9 +204,8 @@ TEUCHOS_UNIT_TEST(ForwardEuler, AppAction_Modifier)
   TEST_COMPARE(modifier->testType, ==, "Forward Euler - Modifier");
 }
 
-
-// ************************************************************
-// ************************************************************
+  // ************************************************************
+  // ************************************************************
 class StepperForwardEulerObserverTest
   : virtual public Tempus::StepperForwardEulerObserverBase<double>
 {
@@ -314,9 +314,8 @@ public:
   TEST_COMPARE(observer->testType, ==, "Forward Euler");
 }
 
-
-// ************************************************************
-// ************************************************************
+  // ************************************************************
+  // ************************************************************
 class StepperForwardEulerModifierXTest
   : virtual public Tempus::StepperForwardEulerModifierXBase<double>
 {

@@ -5,5 +5,4 @@ SET(EMPIRE_Trilinos_Packages
   SEACASNemspread
   SEACASNemslice
   SEACASAprepro
-  Anasazi
   )

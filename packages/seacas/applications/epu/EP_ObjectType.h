@@ -10,7 +10,7 @@
 
 namespace Excn {
   // Note that these are used as indices into truth table for ELBK, NSET, SSET...
-  enum class ObjectType { EBLK = 0, NSET = 1, SSET = 2, NODE, ELEM, GLOBAL, ASSM, UNSET };
+  enum ObjectType { EBLK = 0, NSET = 1, SSET = 2, NODE, ELEM, GLOBAL };
 } // namespace Excn
 
 #endif

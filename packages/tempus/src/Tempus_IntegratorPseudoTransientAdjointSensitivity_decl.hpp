@@ -9,10 +9,9 @@
 #ifndef Tempus_IntegratorPseudoTransientAdjointSensitivity_decl_hpp
 #define Tempus_IntegratorPseudoTransientAdjointSensitivity_decl_hpp
 
-#include "Tempus_config.hpp"
+// Tempus
 #include "Tempus_IntegratorBasic.hpp"
 #include "Tempus_AdjointSensitivityModelEvaluator.hpp"
-
 
 namespace Tempus {
 
@@ -176,21 +175,21 @@ protected:
   Teuchos::RCP<DMVPV> dgdp_;
 };
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<Tempus::IntegratorPseudoTransientAdjointSensitivity<Scalar> >
 integratorPseudoTransientAdjointSensitivity(
   Teuchos::RCP<Teuchos::ParameterList>                pList,
   const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >& model);
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<Tempus::IntegratorPseudoTransientAdjointSensitivity<Scalar> >
 integratorPseudoTransientAdjointSensitivity(
   const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >& model,
   std::string stepperType);
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<Tempus::IntegratorPseudoTransientAdjointSensitivity<Scalar> >
 integratorPseudoTransientAdjointSensitivity();

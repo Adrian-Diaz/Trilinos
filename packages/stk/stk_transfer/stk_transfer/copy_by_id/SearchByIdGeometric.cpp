@@ -33,7 +33,7 @@
 //
 
 #include "SearchByIdGeometric.hpp"
-#include <stk_util/parallel/Parallel.hpp>
+#include <stk_util/parallel/ParallelReduce.hpp>
 #include <sstream>
 #include <stk_search/CoarseSearch.hpp>
 #include <stk_search/SearchMethod.hpp>

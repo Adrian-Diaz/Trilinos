@@ -17,10 +17,6 @@
 #include "Tempus_UnitTest_Utils.hpp"
 #include "Tempus_StepperRKButcherTableau.hpp"
 
-#include "Tempus_StepperForwardEuler.hpp"
-#include "Tempus_StepperBackwardEuler.hpp"
-
-#include "Tempus_StepperOperatorSplit.hpp"
 #include "Tempus_StepperOperatorSplitModifierBase.hpp"
 #include "Tempus_StepperOperatorSplitModifierXBase.hpp"
 #include "Tempus_StepperOperatorSplitObserverBase.hpp"
@@ -45,6 +41,7 @@ using Teuchos::ParameterList;
 using Teuchos::sublist;
 using Teuchos::getParametersFromXmlFile;
 
+using Tempus::StepperFactory;
 using Tempus::StepperExplicitRK;
 
 
@@ -52,15 +49,16 @@ using Tempus::StepperExplicitRK;
 // ************************************************************
 TEUCHOS_UNIT_TEST(OperatorSplit, Default_Construction)
 {
-  RCP<const Thyra::ModelEvaluator<double> > explicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
-  RCP<const Thyra::ModelEvaluator<double> > implicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
+  auto explicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
+  auto implicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
 
   // Default construction.
   auto stepper = rcp(new Tempus::StepperOperatorSplit<double>());
-  auto subStepper1 = Tempus::createStepperForwardEuler(explicitModel, Teuchos::null);
-  auto subStepper2 = Tempus::createStepperBackwardEuler(implicitModel, Teuchos::null);
+  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  auto subStepper1 =
+    sf->createStepperForwardEuler(explicitModel, Teuchos::null);
+  auto subStepper2 =
+    sf->createStepperBackwardEuler(implicitModel, Teuchos::null);
   stepper->addStepper(subStepper1);
   stepper->addStepper(subStepper2);
   stepper->initialize();
@@ -123,7 +121,7 @@ TEUCHOS_UNIT_TEST(OperatorSplit, StepperFactory_Construction)
   models.push_back(implicitModel);
 
 
-  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  auto sf = Teuchos::rcp(new StepperFactory<double>());
 
   // Test using ParameterList.
   // Passing in model.
@@ -202,14 +200,15 @@ public:
 
 TEUCHOS_UNIT_TEST(OperatorSplit, AppAction_Modifier)
 {
-  RCP<const Thyra::ModelEvaluator<double> > explicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
-  RCP<const Thyra::ModelEvaluator<double> > implicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
+  auto explicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
+  auto implicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
   // Default construction.
   auto stepper = rcp(new Tempus::StepperOperatorSplit<double>());
-  auto subStepper1 = Tempus::createStepperForwardEuler(explicitModel, Teuchos::null);
-  auto subStepper2 = Tempus::createStepperBackwardEuler(implicitModel, Teuchos::null);
+  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  auto subStepper1 =
+    sf->createStepperForwardEuler(explicitModel, Teuchos::null);
+  auto subStepper2 =
+    sf->createStepperBackwardEuler(implicitModel, Teuchos::null);
   auto modifier = rcp(new StepperOperatorSplitModifierTest());
   stepper->setAppAction(modifier);
   stepper->addStepper(subStepper1);
@@ -327,14 +326,15 @@ public:
 
 TEUCHOS_UNIT_TEST(OperatorSplit, AppAction_Observer)
 {
-  RCP<const Thyra::ModelEvaluator<double> > explicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
-  RCP<const Thyra::ModelEvaluator<double> > implicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
+  auto explicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
+  auto implicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
   // Default construction.
   auto stepper = rcp(new Tempus::StepperOperatorSplit<double>());
-  auto subStepper1 = Tempus::createStepperForwardEuler(explicitModel, Teuchos::null);
-  auto subStepper2 = Tempus::createStepperBackwardEuler(implicitModel, Teuchos::null);
+  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  auto subStepper1 =
+    sf->createStepperForwardEuler(explicitModel, Teuchos::null);
+  auto subStepper2 =
+    sf->createStepperBackwardEuler(implicitModel, Teuchos::null);
   auto observer = rcp(new StepperOperatorSplitObserverTest());
   stepper->setAppAction(observer);
   stepper->addStepper(subStepper1);
@@ -449,14 +449,15 @@ public:
 
 TEUCHOS_UNIT_TEST(OperatorSplit, AppAction_ModifierX)
 {
-  RCP<const Thyra::ModelEvaluator<double> > explicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
-  RCP<const Thyra::ModelEvaluator<double> > implicitModel =
-    rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
+  auto explicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ExplicitModel<double>());
+  auto implicitModel = rcp(new Tempus_Test::VanDerPol_IMEX_ImplicitModel<double>());
   // Default construction.
   auto stepper = rcp(new Tempus::StepperOperatorSplit<double>());
-  auto subStepper1 = Tempus::createStepperForwardEuler(explicitModel, Teuchos::null);
-  auto subStepper2 = Tempus::createStepperBackwardEuler(implicitModel, Teuchos::null);
+  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
+  auto subStepper1 =
+    sf->createStepperForwardEuler(explicitModel, Teuchos::null);
+  auto subStepper2 =
+    sf->createStepperBackwardEuler(implicitModel, Teuchos::null);
   auto modifierX = rcp(new StepperOperatorSplitModifierXTest());
   stepper->setAppAction(modifierX);
   stepper->addStepper(subStepper1);

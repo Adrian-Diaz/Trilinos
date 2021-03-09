@@ -145,6 +145,7 @@ void get_entities( const BulkData& bulk,
                    bool sortByGlobalId )
 {
   size_t count = count_entities(bulk, rank, selector);
+
   entities.clear();
   entities.reserve(count);
 

@@ -92,8 +92,9 @@ private:
 std::vector<std::pair<stk::mesh::EntityId, int>> getSharingInfo(stk::mesh::BulkData& bulkData)
 {
     stk::mesh::EntityVector sharedNodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulkData, stk::topology::NODE_RANK, bulkData.mesh_meta_data().globally_shared_part(), sharedNodes, sortById);
+    stk::mesh::get_selected_entities(bulkData.mesh_meta_data().globally_shared_part(),
+                                     bulkData.buckets(stk::topology::NODE_RANK),
+                                     sharedNodes);
     std::vector<std::pair<stk::mesh::EntityId, int>> nodeSharingInfo;
     nodeSharingInfo.reserve(8*sharedNodes.size());
 

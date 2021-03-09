@@ -107,6 +107,7 @@ namespace FROSch {
 
         SumOperatorPtr SumOperator_;
         AlgebraicOverlappingOperatorPtr OverlappingOperator_;
+
     };
 
 }

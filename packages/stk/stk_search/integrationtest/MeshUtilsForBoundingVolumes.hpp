@@ -108,8 +108,7 @@ inline void createBoundingBoxesForSidesInSidesets(const stk::mesh::BulkData& bul
         const stk::mesh::Part* sideset = exoTranslator.get_exodus_part_of_rank(sidesetIds[ssetCounter], bulk.mesh_meta_data().side_rank());
         stk::mesh::EntityVector sides;
         stk::mesh::Selector sel = bulk.mesh_meta_data().locally_owned_part() & *sideset;
-        const bool sortById = true;
-        stk::mesh::get_entities(bulk, bulk.mesh_meta_data().side_rank(), sel, sides, sortById);
+        stk::mesh::get_selected_entities(sel, bulk.buckets(bulk.mesh_meta_data().side_rank()), sides);
 
         for(size_t j=0;j<sides.size();++j)
         {
@@ -315,8 +314,7 @@ inline void fillStkBoxesUsingFloatBoxes(const std::vector<FloatBox> &domainBoxes
 inline void createBoundingBoxesForElementsInElementBlocks(const stk::mesh::BulkData &bulk, FloatBoxVector& domainBoxes)
 {
     stk::mesh::EntityVector elements;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulk, stk::topology::ELEM_RANK, bulk.mesh_meta_data().locally_owned_part(), elements, sortById);
+    stk::mesh::get_selected_entities(bulk.mesh_meta_data().locally_owned_part(), bulk.buckets(stk::topology::ELEM_RANK), elements);
 
     size_t numberBoundingBoxes = elements.size();
     domainBoxes.resize(numberBoundingBoxes);
@@ -366,8 +364,7 @@ inline void fillBoundingVolumesUsingNodesFromFile(
     stk::io::fill_mesh(sphereFilename, bulk);
 
     stk::mesh::EntityVector nodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulk, stk::topology::NODE_RANK, meta.locally_owned_part(), nodes, sortById);
+    stk::mesh::get_selected_entities(meta.locally_owned_part(), bulk.buckets(stk::topology::NODE_RANK), nodes);
 
     spheres.clear();
     spheres.resize(nodes.size());
@@ -398,8 +395,7 @@ inline void fillBoundingVolumesUsingNodesFromFile(MPI_Comm comm, const std::stri
     stk::io::fill_mesh(sphereFilename, bulk);
 
     stk::mesh::EntityVector nodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulk, stk::topology::NODE_RANK, meta.locally_owned_part(), nodes, sortById);
+    stk::mesh::get_selected_entities(meta.locally_owned_part(), bulk.buckets(stk::topology::NODE_RANK), nodes);
 
     spheres.clear();
     spheres.resize(nodes.size());

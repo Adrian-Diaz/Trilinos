@@ -19,6 +19,7 @@
 #include <stk_mesh/base/SkinBoundary.hpp>
 #include <stk_mesh/baseImpl/elementGraph/ElemElemGraph.hpp>
 #include <stk_unit_test_utils/ioUtils.hpp>
+#include <stk_util/parallel/ParallelReduce.hpp>
 #include <stk_unit_test_utils/MeshFixture.hpp>  // for MeshTestFixture
 #include <stk_unit_test_utils/FaceCreationTestUtils.hpp>
 
@@ -170,14 +171,7 @@ class TwoBlockInteriorBlockBoundaryTester : public InteriorBlockBoundaryTester
 protected:
     virtual stk::mesh::Selector get_things_to_skin(const stk::mesh::BulkData& bulkData)
     {
-        stk::mesh::Selector selector;
-        if (bulkData.mesh_meta_data().get_part("block_1") != nullptr) {
-          selector = *bulkData.mesh_meta_data().get_part("block_1");
-        }
-        if (bulkData.mesh_meta_data().get_part("block_2") != nullptr) {
-          selector |= *bulkData.mesh_meta_data().get_part("block_2");
-        }
-        return selector;
+        return *bulkData.mesh_meta_data().get_part("block_1") | *bulkData.mesh_meta_data().get_part("block_2");
     }
 };
 

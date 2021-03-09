@@ -50,8 +50,7 @@ protected:
     stk::mesh::EntityVector get_all_elements()
     {
         stk::mesh::EntityVector elements;
-        const bool sortById = true;
-        stk::mesh::get_entities(get_bulk(), stk::topology::ELEM_RANK, get_meta().universal_part(), elements, sortById);
+        stk::mesh::get_selected_entities(get_meta().universal_part(), get_bulk().buckets(stk::topology::ELEMENT_RANK), elements);
         return elements;
     }
 

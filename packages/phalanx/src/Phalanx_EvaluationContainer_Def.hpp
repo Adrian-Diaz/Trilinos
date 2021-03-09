@@ -747,13 +747,5 @@ printEvaluatorStartStopMessage(const Teuchos::RCP<std::ostream>& ostr)
 }
 
 // *************************************************************************
-template <typename EvalT, typename Traits>
-const PHX::DagManager<Traits>&
-PHX::EvaluationContainer<EvalT, Traits>::getDagManager() const
-{
-  return this->dag_manager_;
-}
-
-// *************************************************************************
 
 #endif

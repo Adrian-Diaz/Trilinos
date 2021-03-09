@@ -32,17 +32,16 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/stk_config.h"      // for STK_HAS_MPI
-
+#include <stk_util/util/Marshal.hpp>    // for Marshal, operator<<, etc
 #ifdef STK_HAS_MPI
 
-#include "gtest/gtest.h"              // for Message, TestPartResult, AssertionResult, ASSERT_EQ
-#include "stk_util/util/Marshal.hpp"  // for Marshal, operator<<, operator>>, Marshal::TYPE_CHEC...
-#include <list>                       // for list
-#include <memory>                     // for allocator_traits<>::value_type
-#include <stdexcept>                  // for runtime_error
-#include <string>                     // for operator==, string, basic_string
-#include <vector>                     // for vector
+#include <list>                         // for list
+#include <stdexcept>                    // for runtime_error
+#include <gtest/gtest.h>
+#include <string>                       // for operator==, string, etc
+#include <vector>                       // for vector
+
+
 
 struct S1
 {

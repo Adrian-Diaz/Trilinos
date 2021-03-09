@@ -347,17 +347,18 @@ public:
                                        points, at each cell
       \param  gradEvalPoints   [in]  - rank-3 view (C,P2,D) containing the coordinates of the points
                                        where to evaluate the function gradients, at each cell
-      \param  cellOrientations [in]  - rank-1 container (C) containing the Orientation objects at each cell
+      \param  cellOrientations [in]  - rank-1 view (C) containing the Orientation objects at each cell
       \param  cellBasis        [in]  - pointer to the HGRAD basis for the projection
       \param  projStruct       [in]  - pointer to ProjectionStruct object
       \param  evalPointType    [in]  - enum selecting whether the points should be computed for the basis
                                        functions or for the target function
    */
-  template<typename BasisType, typename OrientationViewType >
+  template<typename BasisType,
+  typename ortValueType,       class ...ortProperties>
   static void
   getHGradEvaluationPoints(typename BasisType::ScalarViewType evaluationPoints,
       typename BasisType::ScalarViewType gradEvalPoints,
-      const OrientationViewType cellOrientations,
+      const Kokkos::DynRankView<ortValueType,   ortProperties...>  cellOrientations,
       const BasisType* cellBasis,
       ProjectionStruct<ExecSpaceType, typename BasisType::scalarType> * projStruct,
       const EvalPointsType evalPointType = EvalPointsType::TARGET
@@ -386,17 +387,19 @@ public:
       \param  cellBasis                  [in]  - pointer to the HGRAD basis for the projection
       \param  projStruct                 [in]  - pointer to ProjectionStruct object
    */
-  template<class BasisCoeffsViewType, class TargetValueViewType, class TargetGradViewType,
-           class BasisType, class OrientationViewType>
+  template<typename basisCoeffsValueType, class ...basisCoeffsProperties,
+  typename funValsValueType, class ...funValsProperties,
+  typename BasisType,
+  typename ortValueType,       class ...ortProperties>
   static void
-  getHGradBasisCoeffs(BasisCoeffsViewType basisCoeffs,
-                      const TargetValueViewType targetAtEvalPoints,
-                      const TargetGradViewType targetGradAtGradEvalPoints,
-                      const typename BasisType::ScalarViewType evaluationPoints,
-                      const typename BasisType::ScalarViewType gradEvalPoints,
-                      const OrientationViewType cellOrientations,
-                      const BasisType* cellBasis,
-                      ProjectionStruct<ExecSpaceType, typename BasisType::scalarType> * projStruct);
+  getHGradBasisCoeffs(Kokkos::DynRankView<basisCoeffsValueType,basisCoeffsProperties...> basisCoeffs,
+      const Kokkos::DynRankView<funValsValueType,funValsProperties...> targetAtEvalPoints,
+      const Kokkos::DynRankView<funValsValueType,funValsProperties...> targetGradAtGradEvalPoints,
+      const typename BasisType::ScalarViewType evaluationPoints,
+      const typename BasisType::ScalarViewType gradEvalPoints,
+      const Kokkos::DynRankView<ortValueType,   ortProperties...>  cellOrientations,
+      const BasisType* cellBasis,
+      ProjectionStruct<ExecSpaceType, typename BasisType::scalarType> * projStruct);
 
 
   /** \brief  Computes evaluation points for HCurl projection

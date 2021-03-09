@@ -16,20 +16,20 @@ namespace Tempus {
 
   TEMPUS_INSTANTIATE_TEMPLATE_CLASS(IntegratorBasic)
 
-  // Nonmember ctor
+  // non-member ctor
   template Teuchos::RCP<IntegratorBasic<double> > integratorBasic(
     Teuchos::RCP<Teuchos::ParameterList>        parameterList,
     const Teuchos::RCP<Thyra::ModelEvaluator<double> >& model);
 
-  // Nonmember ctor
+  // non-member ctor
   template Teuchos::RCP<IntegratorBasic<double> > integratorBasic(
     const Teuchos::RCP<Thyra::ModelEvaluator<double> >& model,
     std::string stepperType);
 
-  // Nonmember ctor
+  // non-member ctor
   template Teuchos::RCP<IntegratorBasic<double> > integratorBasic();
 
-  // Nonmember ctor
+  // non-member ctor
   template Teuchos::RCP<IntegratorBasic<double> > integratorBasic(
     Teuchos::RCP<Teuchos::ParameterList>                     pList,
     std::vector<Teuchos::RCP<const Thyra::ModelEvaluator<double> > > models);

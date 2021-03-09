@@ -65,7 +65,6 @@ evaluateValues(const PHX::MDField<Scalar,IP,Dim> & cub_points,
   PHX::MDField<Scalar,Cell,IP> weighted_measure;
   PHX::MDField<Scalar,Cell,NODE,Dim> vertex_coordinates;
   build_weighted = false;
-  orientations_applied_ = false;
   evaluateValues(cub_points,jac,jac_det,jac_inv,weighted_measure,vertex_coordinates,false,in_num_cells);
 }
 
@@ -81,8 +80,6 @@ evaluateValues(const PHX::MDField<Scalar,IP,Dim> & cub_points,
                const int in_num_cells)
 {
   MDFieldArrayFactory af("",ddims_,true);
-
-  orientations_applied_ = false;
 
   int num_dim   = basis_layout->dimension();
 
@@ -321,8 +318,6 @@ evaluateValues(const PHX::MDField<Scalar,Cell,IP,Dim> & cub_points,
                bool use_vertex_coordinates,
                const int in_num_cells)
 {
-
-  orientations_applied_ = false;
 
   PureBasis::EElementSpace elmtspace = getElementSpace();
 
@@ -827,8 +822,6 @@ evaluateValuesCV(const PHX::MDField<Scalar,Cell,IP,Dim> & cell_cub_points,
   int num_card  = basis_layout->cardinality();
   int num_dim   = basis_layout->dimension();
 
-  orientations_applied_ = false;
-
   size_type num_cells = jac.extent(0);
 
   PureBasis::EElementSpace elmtspace = getElementSpace();
@@ -1205,9 +1198,6 @@ applyOrientations(const std::vector<Intrepid2::Orientation> & orientations,
   if (!intrepid_basis->requireOrientation())
     return;
 
-  // We only allow the orientations to be applied once
-  TEUCHOS_ASSERT(not orientations_applied_);
-
   typedef Intrepid2::OrientationTools<PHX::Device> ots;
   const PureBasis::EElementSpace elmtspace = getElementSpace();
 
@@ -1490,8 +1480,6 @@ applyOrientations(const std::vector<Intrepid2::Orientation> & orientations,
       }
     }
   }
-
-  orientations_applied_ = true;
 }
 
 // method for applying orientations

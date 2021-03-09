@@ -86,7 +86,7 @@ namespace panzer
     numGradDims_(ir.dl_vector->extent(2)),
     basisName_(basis.name())
   {
-    using PHX::View;
+    using Kokkos::View;
     using panzer::BASIS;
     using panzer::Cell;
     using panzer::EvaluatorStyle;
@@ -137,7 +137,7 @@ namespace panzer
 
     // Create the fields that we're either contributing to or evaluating
     // (storing).
-    fields_ = PHX::View<PHX::MDField<ScalarT, Cell, BASIS>*>("Integrator_GradBasisCrossVector::fields_", resNames.size());
+    fields_ = Kokkos::View<PHX::MDField<ScalarT, Cell, BASIS>*>("Integrator_GradBasisCrossVector::fields_", resNames.size());
 
     {
       int i=0;
@@ -154,7 +154,9 @@ namespace panzer
     // Add the dependent field multipliers, if there are any.
     int i = 0;
     fieldMults_.resize(fmNames.size());
-    kokkosFieldMults_ = View<View<const ScalarT**>*>("GradBasisCrossVector::KokkosFieldMultipliers", fmNames.size());
+    kokkosFieldMults_ = View<View<const ScalarT**,
+      typename DevLayout<ScalarT>::type, Device>*>(
+      "GradBasisCrossVector::KokkosFieldMultipliers", fmNames.size());
     for (const auto& name : fmNames)
     {
       fieldMults_[i++] = MDField<const ScalarT, Cell, IP>(name, ir.dl_scalar);
@@ -222,7 +224,7 @@ namespace panzer
     using Kokkos::createDynRankView;
     using panzer::getBasisIndex;
 
-    // Get the PHX::Views of the field multipliers.
+    // Get the Kokkos::Views of the field multipliers.
     for (size_t i(0); i < fieldMults_.size(); ++i)
       kokkosFieldMults_(i) = fieldMults_[i].get_static_view();
 

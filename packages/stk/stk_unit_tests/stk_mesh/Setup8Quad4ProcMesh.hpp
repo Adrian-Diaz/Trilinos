@@ -46,6 +46,7 @@
 #include <stk_mesh/base/BulkData.hpp>   // for BulkData, etc
 #include <stk_mesh/base/FEMHelpers.hpp>
 #include <stk_util/parallel/Parallel.hpp>  // for ParallelMachine, etc
+#include <stk_util/parallel/ParallelReduce.hpp>  // for Reduce, ReduceSum, etc
 #include <stk_mesh/base/GetEntities.hpp>
 #include <string>                       // for string, basic_string, etc
 #include <utility>                      // for pair

@@ -53,22 +53,21 @@
 #pragma clang system_header
 #endif
 
-#include "Intrepid2_Orientation.hpp"
-
 namespace Intrepid2 {
 
-  template<typename DT>
+  template<typename SpT>
   template<typename elemOrtValueType, class ...elemOrtProperties,
            typename elemNodeValueType, class ...elemNodeProperties>
   void
-  OrientationTools<DT>::
+  OrientationTools<SpT>::
   getOrientation(      Kokkos::DynRankView<elemOrtValueType,elemOrtProperties...> elemOrts,
                  const Kokkos::DynRankView<elemNodeValueType,elemNodeProperties...> elemNodes,
                  const shards::CellTopology cellTopo) {
     // small meta data modification and it uses shards; let's do this on host
-    auto elemOrtsHost = Kokkos::create_mirror_view(elemOrts);
-    auto elemNodesHost = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), elemNodes);
-    
+    typedef typename Kokkos::Impl::is_space<SpT>::host_mirror_space::execution_space host_space_type;
+    auto elemOrtsHost = Kokkos::create_mirror_view(typename host_space_type::memory_space(), elemOrts);
+    auto elemNodesHost = Kokkos::create_mirror_view_and_copy(typename host_space_type::memory_space(), elemNodes);
+
     const ordinal_type numCells = elemNodes.extent(0);
     for (auto cell=0;cell<numCells;++cell) {
       const auto nodes = Kokkos::subview(elemNodesHost, cell, Kokkos::ALL());
@@ -220,16 +219,16 @@ namespace Intrepid2 {
     }
   };
 
-  template<typename DT>
+  template<typename SpT>
   template<typename outputValueType, class ...outputProperties,
            typename inputValueType,  class ...inputProperties,
-           typename OrientationViewType,
+           typename ortValueType,    class ...ortProperties,
            typename BasisType>
   void
-  OrientationTools<DT>::
+  OrientationTools<SpT>::
   modifyBasisByOrientation(      Kokkos::DynRankView<outputValueType,outputProperties...> output,
                            const Kokkos::DynRankView<inputValueType, inputProperties...>  input,
-                           const OrientationViewType orts,
+                           const Kokkos::DynRankView<ortValueType,   ortProperties...>    orts,
                            const BasisType* basis ) {
 #ifdef HAVE_INTREPID2_DEBUG
     {
@@ -257,8 +256,11 @@ namespace Intrepid2 {
 #endif
 
     if (basis->requireOrientation()) {
-      auto ordinalToTag = Kokkos::create_mirror_view_and_copy(typename DT::memory_space(), basis->getAllDofTags());
-      auto tagToOrdinal = Kokkos::create_mirror_view_and_copy(typename DT::memory_space(), basis->getAllDofOrdinal());
+      auto ordinalToTag = Kokkos::create_mirror_view(typename SpT::memory_space(), basis->getAllDofTags());
+      auto tagToOrdinal = Kokkos::create_mirror_view(typename SpT::memory_space(), basis->getAllDofOrdinal());
+
+      Kokkos::deep_copy(ordinalToTag, basis->getAllDofTags());
+      Kokkos::deep_copy(tagToOrdinal, basis->getAllDofOrdinal());
 
       const ordinal_type
         numCells  = output.extent(0),
@@ -275,20 +277,19 @@ namespace Intrepid2 {
         numEdges = cellTopo.getEdgeCount()*ordinal_type(basis->getDofCount(1, 0) > 0),
         numFaces = cellTopo.getFaceCount();
 
-      const Kokkos::RangePolicy<typename DT::execution_space> policy(0, numCells);
+      const Kokkos::RangePolicy<SpT> policy(0, numCells);
       typedef F_modifyBasisByOrientation
         <decltype(orts),
          decltype(output),decltype(input),
          decltype(ordinalToTag),decltype(tagToOrdinal),
          decltype(matData)> FunctorType;
-      Kokkos::parallel_for
-        (policy,
-         FunctorType(orts,
-                     output, input,
-                     ordinalToTag, tagToOrdinal,
-                     matData,
-                     cellDim, numVerts, numEdges, numFaces,
-                     numPoints, dimBasis));
+      Kokkos::parallel_for(policy,
+                           FunctorType(orts,
+                                       output, input,
+                                       ordinalToTag, tagToOrdinal,
+                                       matData,
+                                       cellDim, numVerts, numEdges, numFaces,
+                                       numPoints, dimBasis));
     } else {
       Kokkos::deep_copy(output, input);
     }

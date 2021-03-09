@@ -9,7 +9,6 @@
 #ifndef Tempus_WrapperModelEvaluator_hpp
 #define Tempus_WrapperModelEvaluator_hpp
 
-#include "Tempus_config.hpp"
 #include "Tempus_TimeDerivative.hpp"
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 

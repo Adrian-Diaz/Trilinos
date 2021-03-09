@@ -35,11 +35,11 @@
 #ifndef STK_MEMORY_UTIL_H
 #define STK_MEMORY_UTIL_H
 
-#include "stk_util/parallel/Parallel.hpp"        // for MPI_Comm, parallel_machine_size, ompi_co...
-#include "stk_util/parallel/ParallelReduce.hpp"  // for all_reduce_max, all_reduce_min, all_redu...
-#include <cstddef>                               // for size_t
-#include <vector>                                // for vector
+#include <vector>
+#include <string>
 
+#include <stk_util/parallel/Parallel.hpp>
+#include <stk_util/parallel/ParallelReduce.hpp>
 
 namespace stk {
 
@@ -67,11 +67,9 @@ namespace stk {
   {
     int num_procs = stk::parallel_machine_size(comm);
 
-    max = this_proc;
-    min = this_proc;
-    avg = this_proc;
- 
-    stk::all_reduce(comm, ReduceMax<1>(&max) & ReduceMin<1>(&min) & ReduceSum<1>(&avg));
+    stk::all_reduce_max(comm, &this_proc, &max, 1);
+    stk::all_reduce_min(comm, &this_proc, &min, 1);
+    stk::all_reduce_sum(comm, &this_proc, &avg, 1);
     avg /= static_cast<T>(num_procs);
   }
 }

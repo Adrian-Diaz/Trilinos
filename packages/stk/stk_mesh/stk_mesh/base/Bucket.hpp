@@ -167,15 +167,7 @@ public:
 
   //--------------------------------
   /** \brief  Bucket is a subset of the given part */
-  bool member( const Part & part) const
-  {
-    return member(part.mesh_meta_data_ordinal());
-  }
-
-  bool member( PartOrdinal partOrdinal ) const
-  {
-    return std::binary_search(m_partOrdsBeginEnd.first, m_partOrdsBeginEnd.second, partOrdinal);
-  }
+  bool member( const Part & ) const ;
 
   /** \brief  Bucket is a subset of all of the given parts */
   bool member_all( const PartVector & ) const ;
@@ -189,7 +181,11 @@ public:
   /** Query bucket's supersets' ordinals. */
 
   std::pair<const unsigned *, const unsigned *>
-  superset_part_ordinals() const { return m_partOrdsBeginEnd; }
+  superset_part_ordinals() const
+  {
+    return std::pair<const unsigned *, const unsigned *>
+      ( key() + 1 , key() + key()[0] );
+  }
 
 #ifndef DOXYGEN_COMPILE
   const unsigned * key() const { return m_key.data() ; }
@@ -339,15 +335,11 @@ public:
     return (*this)[offsetIntoBucket];
   }
 
+  bool member(stk::mesh::PartOrdinal partOrdinal) const;
+
   void set_ngp_field_bucket_id(unsigned fieldOrdinal, unsigned ngpFieldBucketId);
   unsigned get_ngp_field_bucket_id(unsigned fieldOrdinal) const;
   unsigned get_ngp_field_bucket_is_modified(unsigned fieldOrdinal) const;
-
-  void reset_part_ord_begin_end();
-
-  void reset_bucket_key(const OrdinalVector& newPartOrdinals);
-
-  void reset_bucket_parts(const OrdinalVector& newPartOrdinals);
 
 protected:
   void change_existing_connectivity(unsigned bucket_ordinal, stk::mesh::Entity* new_nodes);
@@ -402,13 +394,7 @@ private:
     m_is_modified = false;
   }
 
-  void mark_for_modification()
-  {
-  #ifdef STK_USE_DEVICE_MESH
-    m_is_modified = true;
-    std::fill(m_ngp_field_is_modified.begin(), m_ngp_field_is_modified.end(), true);
-  #endif
-  }
+  void mark_for_modification();
 
   void initialize_ngp_field_bucket_ids();
 
@@ -474,7 +460,6 @@ private:
   const EntityRank       m_entity_rank ; // Type of entities for this bucket
   stk::topology          m_topology ;    // The topology of this bucket
   std::vector<unsigned>  m_key ;         // REFACTOR
-  std::pair<const unsigned*,const unsigned*> m_partOrdsBeginEnd;
   const size_t           m_capacity ;    // Capacity for entities
   size_type              m_size ;        // Number of entities
   unsigned               m_bucket_id;    // Index into its BucketRepository's m_bucket[entity_rank()], these are NOT unique
@@ -520,7 +505,13 @@ private:
 inline
 bool has_superset( const Bucket & bucket,  const unsigned & ordinal )
 {
-  return bucket.member(ordinal);
+  std::pair<const unsigned *, const unsigned *>
+    part_ord = bucket.superset_part_ordinals();
+
+  part_ord.first =
+    std::lower_bound( part_ord.first , part_ord.second , ordinal );
+
+  return part_ord.first < part_ord.second && ordinal == *part_ord.first ;
 }
 
 //----------------------------------------------------------------------
@@ -531,7 +522,7 @@ bool has_superset( const Bucket & bucket,  const unsigned & ordinal )
 inline
 bool has_superset( const Bucket & bucket ,  const Part & p )
 {
-  return bucket.member(p.mesh_meta_data_ordinal());
+  return has_superset(bucket,p.mesh_meta_data_ordinal());
 }
 
 /** \brief  Is this bucket a subset of all of the given

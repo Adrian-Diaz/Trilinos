@@ -50,7 +50,7 @@ TEST_F(Assembly, ioPartIsNotAssembly)
 TEST_F(Assembly, createAssembly)
 {
   const std::string assemblyName("myAssembly");
-  stk::mesh::Part& assemblyPart = create_assembly(assemblyName, 100);
+  stk::mesh::Part& assemblyPart = create_assembly(assemblyName);
 
   test_assembly_part_attributes(assemblyPart);
 
@@ -66,7 +66,7 @@ TEST_F(Assembly, getAssemblyNames_empty)
 TEST_F(Assembly, getAssemblyNames_singleAssembly)
 {
   std::string assemblyName("myAssembly");
-  create_assembly(assemblyName, 100);
+  create_assembly(assemblyName);
 
   create_io_part("myPart");
 
@@ -78,13 +78,13 @@ TEST_F(Assembly, getAssemblyNames_singleAssembly)
 TEST_F(Assembly, getAssemblyNames_multipleAssemblies_inOrderOfCreation)
 {
   std::string assemblyBBB("BBB_assembly");
-  create_assembly(assemblyBBB, 100);
+  create_assembly(assemblyBBB);
 
   std::string assemblyZZZ("ZZZ_assembly");
-  create_assembly(assemblyZZZ, 200);
+  create_assembly(assemblyZZZ);
 
   std::string assemblyAAA("AAA_assembly");
-  create_assembly(assemblyAAA, 300);
+  create_assembly(assemblyAAA);
 
   std::vector<std::string> assemblyNames = stk::io::get_assembly_names(get_meta());
   ASSERT_EQ(3u, assemblyNames.size());
@@ -101,9 +101,8 @@ TEST_F(Assembly, createAssemblyWithSubAssemblies)
 
   stk::mesh::Part* parentAssemblyPart;
   stk::mesh::PartVector subAssemblyParts;
-  std::tie(parentAssemblyPart, subAssemblyParts) = create_assembly_hierarchy(parentAssemblyName, 100,
-                                                     {subAssembly1Name, subAssembly2Name},
-                                                     {200, 201});
+  std::tie(parentAssemblyPart, subAssemblyParts) = create_assembly_hierarchy(parentAssemblyName,
+                                                     {subAssembly1Name, subAssembly2Name});
 
   EXPECT_TRUE(stk::io::has_sub_assemblies(get_meta(), parentAssemblyName));
 
@@ -117,7 +116,7 @@ TEST_F(Assembly, createAssemblyWithSubAssemblies_getAssemblyNames)
   std::string subAssembly1Name("mySubAssembly1");
   std::string subAssembly2Name("mySubAssembly2");
 
-  create_assembly_hierarchy(parentAssemblyName, 100, {subAssembly1Name, subAssembly2Name}, {200, 201});
+  create_assembly_hierarchy(parentAssemblyName, {subAssembly1Name, subAssembly2Name});
 
   std::vector<std::string> assemblyNames = stk::io::get_assembly_names(get_meta());
   ASSERT_EQ(3u, assemblyNames.size());
@@ -132,7 +131,7 @@ TEST_F(Assembly, createAssemblyWithSubAssemblies_getSubAssemblyNames)
   std::string subAssembly1Name("mySubAssembly1");
   std::string subAssembly2Name("mySubAssembly2");
 
-  create_assembly_hierarchy(parentAssemblyName, 100, {subAssembly1Name, subAssembly2Name}, {200, 201});
+  create_assembly_hierarchy(parentAssemblyName, {subAssembly1Name, subAssembly2Name});
 
   std::vector<std::string> subAssemblyNames = stk::io::get_sub_assembly_names(get_meta(), parentAssemblyName);
   ASSERT_EQ(2u, subAssemblyNames.size());
@@ -151,8 +150,8 @@ TEST_F(Assembly, createAssemblyWithSubAssemblies_leafParts)
 
   stk::mesh::Part* parentAssemblyPart;
   stk::mesh::PartVector subAssemblyParts;
-  std::tie(parentAssemblyPart, subAssemblyParts) = create_assembly_hierarchy(parentAssemblyName, 100,
-                                                     {subAssembly1Name, subAssembly2Name}, {200, 201});
+  std::tie(parentAssemblyPart, subAssemblyParts) = create_assembly_hierarchy(parentAssemblyName,
+                                                     {subAssembly1Name, subAssembly2Name});
   stk::mesh::Part& block1Part = create_io_part("block_1");
   stk::mesh::Part& block2Part = create_io_part("block_2");
   stk::mesh::Part& block3Part = create_io_part("block_3");

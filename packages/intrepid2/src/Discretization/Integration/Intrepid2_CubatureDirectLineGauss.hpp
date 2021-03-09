@@ -57,17 +57,17 @@ namespace Intrepid2 {
   /** \class Intrepid2::CubatureDirectLineGauss
       \brief Defines Gauss integration rules on a line.
   */
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename pointValueType = double,
            typename weightValueType = double>
   class CubatureDirectLineGauss
-    : public CubatureDirect<DeviceType,pointValueType,weightValueType> {
+    : public CubatureDirect<ExecSpaceType,pointValueType,weightValueType> {
   public:
-    typedef typename CubatureDirect<DeviceType,pointValueType,weightValueType>::CubatureDataStatic CubatureDataStatic;
-    typedef typename CubatureDirect<DeviceType,pointValueType,weightValueType>::CubatureData       CubatureData;
+    typedef typename CubatureDirect<ExecSpaceType,pointValueType,weightValueType>::CubatureDataStatic CubatureDataStatic;
+    typedef typename CubatureDirect<ExecSpaceType,pointValueType,weightValueType>::CubatureData       CubatureData;
 
-    typedef typename CubatureDirect<DeviceType,pointValueType,weightValueType>::PointViewType  PointViewType;
-    typedef typename CubatureDirect<DeviceType,pointValueType,weightValueType>::weightViewType weightViewType;
+    typedef typename CubatureDirect<ExecSpaceType,pointValueType,weightValueType>::PointViewType  PointViewType;
+    typedef typename CubatureDirect<ExecSpaceType,pointValueType,weightValueType>::weightViewType weightViewType;
 
   private:
     // static data initialize upto 62 but we only support upto Parameters::MaxCubatureDegreeEdge
@@ -89,7 +89,7 @@ namespace Intrepid2 {
      */
     virtual
     const char*
-    getName() const override {
+    getName() const {
       return "CubatureDirectLineGauss";
     }
 

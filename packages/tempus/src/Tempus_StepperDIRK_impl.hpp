@@ -9,13 +9,18 @@
 #ifndef Tempus_StepperDIRK_impl_hpp
 #define Tempus_StepperDIRK_impl_hpp
 
-#include "Thyra_VectorStdOps.hpp"
-
+#include "Tempus_config.hpp"
+#include "Tempus_StepperFactory.hpp"
 #include "Tempus_WrapperModelEvaluatorBasic.hpp"
+#include "Teuchos_VerboseObjectParameterListHelpers.hpp"
+#include "Thyra_VectorStdOps.hpp"
+#include "NOX_Thyra.H"
 
 
 namespace Tempus {
 
+// Forward Declaration for recursive includes (this Stepper <--> StepperFactory)
+template<class Scalar> class StepperFactory;
 
 template<class Scalar>
 void StepperDIRK<Scalar>::setupDefault()

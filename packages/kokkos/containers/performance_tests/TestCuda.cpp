@@ -43,6 +43,7 @@
 */
 
 #include <Kokkos_Macros.hpp>
+#if defined(KOKKOS_ENABLE_CUDA)
 
 #include <cstdint>
 #include <string>
@@ -65,13 +66,23 @@
 
 namespace Performance {
 
-TEST(TEST_CATEGORY, dynrankview_perf) {
+class cuda : public ::testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    std::cout << std::setprecision(5) << std::scientific;
+    Kokkos::InitArguments args(-1, -1, 0);
+    Kokkos::initialize(args);
+  }
+  static void TearDownTestCase() { Kokkos::finalize(); }
+};
+
+TEST_F(cuda, dynrankview_perf) {
   std::cout << "Cuda" << std::endl;
   std::cout << " DynRankView vs View: Initialization Only " << std::endl;
   test_dynrankview_op_perf<Kokkos::Cuda>(40960);
 }
 
-TEST(TEST_CATEGORY, global_2_local) {
+TEST_F(cuda, global_2_local) {
   std::cout << "Cuda" << std::endl;
   std::cout << "size, create, generate, fill, find" << std::endl;
   for (unsigned i = Performance::begin_id_size; i <= Performance::end_id_size;
@@ -79,12 +90,15 @@ TEST(TEST_CATEGORY, global_2_local) {
     test_global_to_local_ids<Kokkos::Cuda>(i);
 }
 
-TEST(TEST_CATEGORY, unordered_map_performance_near) {
+TEST_F(cuda, unordered_map_performance_near) {
   Perf::run_performance_tests<Kokkos::Cuda, true>("cuda-near");
 }
 
-TEST(TEST_CATEGORY, unordered_map_performance_far) {
+TEST_F(cuda, unordered_map_performance_far) {
   Perf::run_performance_tests<Kokkos::Cuda, false>("cuda-far");
 }
 
 }  // namespace Performance
+#else
+void KOKKOS_CONTAINERS_PERFORMANCE_TESTS_TESTCUDA_PREVENT_EMPTY_LINK_ERROR() {}
+#endif /* #if defined( KOKKOS_ENABLE_CUDA ) */

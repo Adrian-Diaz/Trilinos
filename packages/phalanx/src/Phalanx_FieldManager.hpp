@@ -299,10 +299,6 @@ namespace PHX {
     template<typename EvalT>
     const std::vector<PHX::index_size_type>& getKokkosExtendedDataTypeDimensions() const;
 
-    //! Returns DagManager for an evaluation type. Used for query, debug and unit testing.
-    template<typename EvalT>
-    const PHX::DagManager<Traits>& getDagManager() const;
-
     //! Return iterator to first EvaluationContainer
     typename FieldManager::iterator begin();
 

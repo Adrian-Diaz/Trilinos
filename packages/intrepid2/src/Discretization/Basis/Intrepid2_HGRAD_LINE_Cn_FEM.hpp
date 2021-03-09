@@ -99,7 +99,7 @@ namespace Intrepid2 {
                          const ordinal_type        operatorDn = 0 );
       };
 
-      template<typename DeviceType, ordinal_type numPtsPerEval,
+      template<typename ExecSpaceType, ordinal_type numPtsPerEval,
                typename outputValueValueType, class ...outputValueProperties,
                typename inputPointValueType,  class ...inputPointProperties,
                typename vinvValueType,        class ...vinvProperties>
@@ -169,43 +169,39 @@ namespace Intrepid2 {
     };
   }
   
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename outputValueType = double,
            typename pointValueType = double>
   class Basis_HGRAD_LINE_Cn_FEM
-    : public Basis<DeviceType,outputValueType,pointValueType> {
+    : public Basis<ExecSpaceType,outputValueType,pointValueType> {
   public:
-    using BasisBase = Basis<DeviceType,outputValueType,pointValueType>;
-      
-    using HostBasis = Basis_HGRAD_LINE_Cn_FEM<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>;
-    
-    using OrdinalTypeArray1DHost = typename BasisBase::OrdinalTypeArray1DHost;
-    using OrdinalTypeArray2DHost = typename BasisBase::OrdinalTypeArray2DHost;
-    using OrdinalTypeArray3DHost = typename BasisBase::OrdinalTypeArray3DHost;
-    
-    using OutputViewType = typename BasisBase::OutputViewType;
-    using PointViewType  = typename BasisBase::PointViewType ;
-    using ScalarViewType = typename BasisBase::ScalarViewType;
+    using OrdinalTypeArray1DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
+    using OrdinalTypeArray2DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
+    using OrdinalTypeArray3DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
+
+    using OutputViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OutputViewType;
+    using PointViewType  = typename Basis<ExecSpaceType,outputValueType,pointValueType>::PointViewType;
+    using ScalarViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::ScalarViewType;
 
   private:
 
     /** \brief inverse of Generalized Vandermonde matrix, whose columns store the expansion
         coefficients of the nodal basis in terms of phis_ */
-    Kokkos::DynRankView<typename ScalarViewType::value_type,DeviceType> vinv_;
-    EPointType   pointType_;
+    Kokkos::DynRankView<typename ScalarViewType::value_type,ExecSpaceType> vinv_;
+
   public:
     /** \brief  Constructor.
      */
     Basis_HGRAD_LINE_Cn_FEM(const ordinal_type order,
                             const EPointType   pointType = POINTTYPE_EQUISPACED);  
 
-    using BasisBase::getValues;
+    using Basis<ExecSpaceType,outputValueType,pointValueType>::getValues;
 
     virtual
     void
     getValues(       OutputViewType outputValues,
                      const PointViewType  inputPoints,
-                     const EOperator operatorType = OPERATOR_VALUE ) const override {
+                     const EOperator operatorType = OPERATOR_VALUE ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       Intrepid2::getValues_HGRAD_Args(outputValues,
                                       inputPoints,
@@ -215,7 +211,7 @@ namespace Intrepid2 {
 #endif
       constexpr ordinal_type numPtsPerEval = 1;
       Impl::Basis_HGRAD_LINE_Cn_FEM::
-        getValues<DeviceType,numPtsPerEval>( outputValues,
+        getValues<ExecSpaceType,numPtsPerEval>( outputValues,
                                                 inputPoints,
                                                 this->vinv_,
                                                 operatorType );
@@ -223,7 +219,7 @@ namespace Intrepid2 {
 
     virtual
     void
-    getDofCoords( ScalarViewType dofCoords ) const override {
+    getDofCoords( ScalarViewType dofCoords ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify rank of output array.
       INTREPID2_TEST_FOR_EXCEPTION( dofCoords.rank() != 2, std::invalid_argument,
@@ -240,7 +236,7 @@ namespace Intrepid2 {
 
     virtual
     void
-    getDofCoeffs( ScalarViewType dofCoeffs ) const override {
+    getDofCoeffs( ScalarViewType dofCoeffs ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify rank of output array.
       INTREPID2_TEST_FOR_EXCEPTION( dofCoeffs.rank() != 1, std::invalid_argument,
@@ -254,7 +250,7 @@ namespace Intrepid2 {
 
     virtual
     const char*
-    getName() const override {
+    getName() const {
       return "Intrepid2_HGRAD_LINE_Cn_FEM";
     }
 
@@ -264,7 +260,7 @@ namespace Intrepid2 {
       Kokkos::deep_copy(vinv, this->vinv_);      
     }
 
-    Kokkos::DynRankView<typename ScalarViewType::const_value_type,DeviceType>
+    Kokkos::DynRankView<typename ScalarViewType::const_value_type,ExecSpaceType>
     getVandermondeInverse() const {
       return vinv_;
     }
@@ -274,16 +270,6 @@ namespace Intrepid2 {
       return getPnCardinality<1>(this->basisDegree_);
     }
 
-  /** \brief Creates and returns a Basis object whose DeviceType template argument is Kokkos::HostSpace::device_type, but is otherwise identical to this.
-      
-         \return Pointer to the new Basis object.
-      */
-     virtual HostBasisPtr<outputValueType,pointValueType>
-     getHostBasis() const override {
-       auto hostBasis = Teuchos::rcp(new HostBasis(this->basisDegree_, pointType_));
-       
-       return hostBasis;
-     }
   };
 
 }// namespace Intrepid2

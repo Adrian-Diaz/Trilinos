@@ -54,38 +54,33 @@ namespace Test {
 
 using value_type       = double;
 constexpr double value = 0.5;
+const int num_elements = 10;
 
 struct ReduceFunctor {
+  value_type *_data;
+
+  ReduceFunctor(value_type *data) : _data(data) {}
+
   KOKKOS_INLINE_FUNCTION
   void operator()(const int i, double &UpdateSum) const {
-    UpdateSum += (i + 1) * value;
+    _data[i] = (i + 1) * value;
+    UpdateSum += _data[i];
   }
-};
-
-struct NonTrivialReduceFunctor {
-  KOKKOS_INLINE_FUNCTION
-  void operator()(const int i, double &UpdateSum) const {
-    UpdateSum += (i + 1) * value;
-  }
-
-  NonTrivialReduceFunctor()                                = default;
-  NonTrivialReduceFunctor(NonTrivialReduceFunctor const &) = default;
-  NonTrivialReduceFunctor(NonTrivialReduceFunctor &&)      = default;
-  NonTrivialReduceFunctor &operator=(NonTrivialReduceFunctor &&) = default;
-  NonTrivialReduceFunctor &operator=(NonTrivialReduceFunctor const &) = default;
-  ~NonTrivialReduceFunctor() {}
 };
 
 template <class ExecSpace>
 struct TestReduction {
-  value_type sum = 0.0;
-  const int m_num_elements;
+  // Memory space type for Device and Host data
+  using d_memspace_type = typename ExecSpace::memory_space;
+  using h_memspace_type = Kokkos::HostSpace;
 
-  TestReduction(int num_elements) : m_num_elements(num_elements) {}
+  value_type *deviceData, *hostData;
+  value_type sum = 0.0;
 
   // compare and equal
   void check_correctness() {
-    const int sum_local = (m_num_elements * (m_num_elements + 1)) / 2;
+    int sum_local = 0;
+    for (int i = 0; i < num_elements; ++i) sum_local += (i + 1);
 
     ASSERT_EQ(sum, sum_local * value)
         << "The reduced value does not match the expected answer";
@@ -104,23 +99,39 @@ struct TestReduction {
     Kokkos::kokkos_free<MemSpace>(data);
   }
 
-  void sum_reduction() {
-    sum = 0.0;
-
-    // Creates a range policy that uses dynamic schedule.
-    using range_policy =
-        Kokkos::RangePolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic> >;
-
-    // parallel_reduce call with range policy over num_elements number of
-    // iterations
-    Kokkos::parallel_reduce("Reduction", range_policy(0, m_num_elements),
-                            ReduceFunctor{}, sum);
-
-    check_correctness();
+  // Free the allocated memory
+  void free_mem() {
+    Kokkos::kokkos_free<d_memspace_type>(deviceData);
+    Kokkos::kokkos_free<h_memspace_type>(hostData);
   }
 
-  void non_trivial_sum_reduction() {
+  // Allocate Memory for both device and host memory spaces
+  void init() {
+    // Allocate memory on Device space.
+    deviceData = allocate_mem<d_memspace_type>(num_elements);
+    ASSERT_NE(deviceData, nullptr);
+
+    // Allocate memory on Host space.
+    hostData = allocate_mem<h_memspace_type>(num_elements);
+    ASSERT_NE(hostData, nullptr);
+
+    // Initialize the sum value to zero.
     sum = 0.0;
+  }
+
+  void check_correctness_and_cleanup() {
+    // Check if reduction has produced correct results
+    check_correctness();
+
+    // free the allocated memory
+    free_mem<d_memspace_type>(deviceData);
+    free_mem<h_memspace_type>(hostData);
+  }
+
+  void sum_reduction() {
+    // Allocates memory for num_elements number of value_type elements in the
+    // host and device memory spaces.
+    init();
 
     // Creates a range policy that uses dynamic schedule.
     using range_policy =
@@ -128,19 +139,16 @@ struct TestReduction {
 
     // parallel_reduce call with range policy over num_elements number of
     // iterations
-    Kokkos::parallel_reduce("Reduction", range_policy(0, m_num_elements),
-                            NonTrivialReduceFunctor{}, sum);
+    Kokkos::parallel_reduce("Reduction", range_policy(0, num_elements),
+                            ReduceFunctor(deviceData), sum);
 
-    check_correctness();
+    check_correctness_and_cleanup();
   }
 };
 
 TEST(TEST_CATEGORY, IncrTest_05_reduction) {
-  for (unsigned int i = 0; i < 100; ++i) {
-    TestReduction<TEST_EXECSPACE> test(i);
-    test.sum_reduction();
-    test.non_trivial_sum_reduction();
-  }
+  TestReduction<TEST_EXECSPACE> test;
+  test.sum_reduction();
 }
 
 }  // namespace Test

@@ -32,14 +32,12 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "gtest/gtest.h"
-#include "stk_util/diag/String.hpp"                    // for String
-#include "stk_util/parallel/Parallel.hpp"              // for MPI_COMM_WORLD, MPI_SUCCESS, paral...
-#include "stk_util/parallel/ParallelVectorConcat.hpp"  // for parallel_vector_concat
-#include <iostream>                                    // for operator<<, ostringstream, basic_o...
-#include <memory>                                      // for allocator_traits<>::value_type
-#include <string>                                      // for string, basic_string, char_traits
-#include <vector>                                      // for vector
+#include <stddef.h>                     // for size_t
+#include <iostream>                     // for operator<<, basic_ostream, etc
+#include <stk_util/parallel/Parallel.hpp>  // for parallel_machine_rank, etc
+#include <stk_util/parallel/ParallelVectorConcat.hpp>
+#include <gtest/gtest.h>
+#include <string>                       // for string
 
 
 class TestStruct {

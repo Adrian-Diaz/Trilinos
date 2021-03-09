@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2021 National Technology & Engineering Solutions
+// Copyright(C) 1999-2020 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -19,7 +19,6 @@
 
 #include <EJ_CodeTypes.h>
 #include <cstdint>
-#include <numeric>
 #include <unistd.h>
 
 #include "EJ_index_sort.h"
@@ -30,14 +29,17 @@ namespace {
   /* swap - interchange v[i] and v[j] */
   template <typename T, typename INT> void ex_swap(T *v, INT i, INT j)
   {
-    T temp = v[i];
-    v[i]   = v[j];
-    v[j]   = temp;
+    T temp;
+
+    temp = v[i];
+    v[i] = v[j];
+    v[j] = temp;
   }
 
-  template <typename T, typename INT> INT ex_int_median3(T *v, INT iv[], size_t left, size_t right)
+  template <typename T, typename INT> int ex_int_median3(T *v, INT iv[], size_t left, size_t right)
   {
-    size_t center = (static_cast<ssize_t>(left) + static_cast<ssize_t>(right)) / 2;
+    size_t center;
+    center = (static_cast<ssize_t>(left) + static_cast<ssize_t>(right)) / 2;
 
     if (v[iv[left]] > v[iv[center]]) {
       ex_swap(iv, left, center);
@@ -55,10 +57,14 @@ namespace {
 
   template <typename T, typename INT> void ex_int_iqsort(T *v, INT iv[], size_t left, size_t right)
   {
+    size_t pivot;
+    size_t i;
+    size_t j;
+
     if (left + EX_QSORT_CUTOFF <= right) {
-      INT    pivot = ex_int_median3(v, iv, left, right);
-      size_t i     = left;
-      size_t j     = right - 1;
+      pivot = ex_int_median3(v, iv, left, right);
+      i     = left;
+      j     = right - 1;
 
       for (;;) {
         while (v[iv[++i]] < v[pivot]) {
@@ -83,14 +89,14 @@ namespace {
 
   template <typename T, typename INT> void ex_int_iisort(T *v, INT iv[], size_t N)
   {
+    size_t ndx = 0;
+    size_t j;
+
     if (N == 0) {
       return;
     }
 
-    size_t ndx = 0;
-
-    using TT = typename std::remove_cv<T>::type;
-    TT small = v[iv[0]];
+    double small = v[iv[0]];
     for (size_t i = 1; i < N; i++) {
       if (v[iv[i]] < small) {
         small = v[iv[i]];
@@ -100,7 +106,6 @@ namespace {
     /* Put smallest value in slot 0 */
     ex_swap(iv, static_cast<size_t>(0), ndx);
 
-    size_t j;
     for (size_t i = 1; i < N; i++) {
       INT tmp = iv[i];
       for (j = i; v[tmp] < v[iv[j - 1]]; j--) {
@@ -144,7 +149,10 @@ void index_coord_sort(const std::vector<double> &xyz, std::vector<INT> &index, i
 template <typename INT> void index_sort(const std::vector<INT> &ids, std::vector<INT> &index)
 {
   index.resize(ids.size());
-  std::iota(index.begin(), index.end(), (INT)0);
+  for (size_t i = 0; i < index.size(); i++) {
+    index[i] = i;
+  }
+
   ex__iqsort(&ids[0], &index[0], index.size());
 }
 

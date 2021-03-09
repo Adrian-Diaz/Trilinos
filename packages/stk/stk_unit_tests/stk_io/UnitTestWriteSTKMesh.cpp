@@ -21,7 +21,6 @@
 #include <stk_mesh/base/FieldBase.hpp>
 #include <stk_mesh/base/GetEntities.hpp>
 #include <stk_mesh/base/Field.hpp>
-#include <stk_mesh/base/SideSetUtil.hpp>
 #include <stk_mesh/base/SideSetEntry.hpp>
 #include <stk_unit_test_utils/MeshFixture.hpp>
 
@@ -345,7 +344,7 @@ TEST_F(StkIoResultsOutput, no_reconstruct_on_input)
     const stk::mesh::BulkData& bulk = get_bulk();
     EXPECT_TRUE(bulk.does_sideset_exist(*surface_1));
 
-    EXPECT_FALSE( stk::mesh::should_reconstruct_sideset(bulk, *surface_1) );
+    EXPECT_FALSE( stk::io::should_reconstruct_sideset(bulk, *surface_1) );
 }
 
 TEST_F(StkIoResultsOutput, reconstruct_on_creating_sideset)
@@ -361,11 +360,11 @@ TEST_F(StkIoResultsOutput, reconstruct_on_creating_sideset)
     stk::mesh::BulkData& bulk = get_bulk();
     EXPECT_FALSE(bulk.does_sideset_exist(surface_part));
 
-    EXPECT_TRUE( stk::mesh::should_reconstruct_sideset(bulk, surface_part) );
+    EXPECT_TRUE( stk::io::should_reconstruct_sideset(bulk, surface_part) );
 
     bulk.create_sideset(surface_part);
 
-    EXPECT_FALSE( stk::mesh::should_reconstruct_sideset(bulk, surface_part) );
+    EXPECT_FALSE( stk::io::should_reconstruct_sideset(bulk, surface_part) );
 
     stk::mesh::Entity elem = bulk.get_entity(stk::topology::ELEM_RANK, 1);
     EXPECT_TRUE(bulk.is_valid(elem));
@@ -381,7 +380,7 @@ TEST_F(StkIoResultsOutput, reconstruct_on_creating_sideset)
     EXPECT_EQ(elem, entry.element);
     EXPECT_EQ(1, entry.side);
 
-    EXPECT_FALSE( stk::mesh::should_reconstruct_sideset(bulk, surface_part) );
+    EXPECT_FALSE( stk::io::should_reconstruct_sideset(bulk, surface_part) );
 }
 
 TEST(TestStkIo, readWrite)

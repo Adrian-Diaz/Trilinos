@@ -54,8 +54,6 @@ struct DefaultSettings {
 
   const double smFaceSearchVertexMultiplier = 10.0;
   const double smFaceSearchEdgeWeight = 3.0;
-
-  const std::string vertexWeightBlockMultiplier = "";
 };
 
 } }

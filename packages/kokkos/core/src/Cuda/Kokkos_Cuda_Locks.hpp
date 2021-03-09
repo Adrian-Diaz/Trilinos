@@ -81,6 +81,8 @@ void finalize_host_cuda_lock_arrays();
 }  // namespace Impl
 }  // namespace Kokkos
 
+#if defined(__CUDACC__)
+
 namespace Kokkos {
 namespace Impl {
 
@@ -170,6 +172,8 @@ inline int eliminate_warning_for_lock_array() { return lock_array_copied; }
 #define KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE() \
   KOKKOS_COPY_CUDA_LOCK_ARRAYS_TO_DEVICE()
 #endif
+
+#endif /* defined( __CUDACC__ ) */
 
 #endif /* defined( KOKKOS_ENABLE_CUDA ) */
 

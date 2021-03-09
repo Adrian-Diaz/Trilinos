@@ -35,27 +35,27 @@
 #define GETNGPFIELD_HPP
 
 #include "stk_mesh/base/NgpField.hpp"
-#include "stk_mesh/base/NgpFieldSyncDebugger.hpp"
 #include "stk_mesh/base/FieldBase.hpp"
 
 namespace stk {
 namespace mesh {
 
-template <typename T, template <typename> class NgpDebugger = DefaultNgpFieldSyncDebugger>
-NgpField<T, NgpDebugger> & get_updated_ngp_field(const FieldBase & stkField)
+template <typename T>
+NgpField<T> & get_updated_ngp_field(const FieldBase & stkField)
 {
-  NgpFieldBase * ngpField = impl::get_ngp_field(stkField);
+  NgpFieldBase * ngpField = stkField.get_ngp_field();
 
   if (ngpField == nullptr) {
-    ngpField = new NgpField<T, NgpDebugger>(stkField.get_mesh(), stkField, true);
-    impl::set_ngp_field(stkField, ngpField);
+    NgpField<T>* ngpFieldT = new NgpField<T>(stkField.get_mesh(), stkField, true);
+    ngpField = ngpFieldT;
+    stkField.set_ngp_field(ngpField);
   }
   else {
     if (stkField.get_mesh().synchronized_count() != ngpField->synchronized_count()) {
       ngpField->update_field();
     }
   }
-  return dynamic_cast< NgpField<T, NgpDebugger>& >(*ngpField);
+  return dynamic_cast< NgpField<T>& >(*ngpField);
 }
 
 }}

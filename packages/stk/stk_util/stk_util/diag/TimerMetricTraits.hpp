@@ -35,9 +35,7 @@
 #ifndef stk_util_diag_TimerMetricTraits_hpp
 #define stk_util_diag_TimerMetricTraits_hpp
 
-#include <string>  // for string
-
-namespace stk { namespace diag { template <class T> struct MetricTraits; } }
+#include <string>
 
 namespace stk {
 namespace diag {
@@ -78,6 +76,8 @@ struct MPICount {};                             ///< MPI call count metric tag
 struct MPIByteCount {};                         ///< MPI byte count metric tag
 struct HeapAlloc {};                            ///< Heap allocation metric tag
 
+template <class T>
+struct MetricTraits;
 
 template<>
 struct MetricTraits<LapCount>

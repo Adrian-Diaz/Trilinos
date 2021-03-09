@@ -122,23 +122,29 @@ check_getCoeffMatrix_HGRAD(const subcellBasisType& subcellBasis,
 } // Debug namespace
 
 template<typename OutputViewType,
-typename subcellBasisHostType,
-typename cellBasisHostType>
+typename subcellBasisType,
+typename cellBasisType>
 inline
 void
 OrientationTools::
-getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
-                     const subcellBasisHostType& subcellBasis, /// this must be host basis object
-                     const cellBasisHostType& cellBasis, /// this also must be host basis object
-                     const ordinal_type subcellId,
-                     const ordinal_type subcellOrt) {
+getCoeffMatrix_HGRAD(OutputViewType &output,
+    const subcellBasisType& subcellBasis,
+    const cellBasisType& cellBasis,
+    const ordinal_type subcellId,
+    const ordinal_type subcellOrt) {
 
 #ifdef HAVE_INTREPID2_DEBUG
   Debug::check_getCoeffMatrix_HGRAD(subcellBasis,cellBasis,subcellId,subcellOrt);
 #endif
 
-  using host_device_type = typename Kokkos::HostSpace::device_type;
-  using value_type = typename OutputViewType::non_const_value_type;
+  using ScalarType = typename cellBasisType::scalarType;
+  using ExecutionSpace = typename cellBasisType::ExecutionSpace;
+  using HostExecutionSpace =
+      typename Kokkos::Impl::is_space<ExecutionSpace>::host_mirror_space::execution_space;
+  using OutputValueType = typename cellBasisType::OutputValueType;
+  using PointValueType = typename cellBasisType::PointValueType;
+  using BasisViewType = Kokkos::DynRankView<OutputValueType,ExecutionSpace>;
+  using PointViewType = Kokkos::DynRankView<PointValueType,ExecutionSpace>;
 
   //
   // Topology
@@ -158,7 +164,7 @@ getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
   //
 
   // Reference points \xi_j on the subcell
-  Kokkos::DynRankView<value_type,host_device_type> refPtsSubcell("refPtsSubcell", ndofSubcell, subcellDim);
+  PointViewType refPtsSubcell("refPtsSubcell", ndofSubcell, subcellDim);
   auto latticeSize=PointTools::getLatticeSize(subcellTopo, subcellBasis.getDegree(), 1);
 
   INTREPID2_TEST_FOR_EXCEPTION( latticeSize != ndofSubcell,
@@ -168,9 +174,9 @@ getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
   PointTools::getLattice(refPtsSubcell, subcellTopo, subcellBasis.getDegree(), 1, POINTTYPE_WARPBLEND);
 
   // map the points into the parent, cell accounting for orientation
-  typename Intrepid2::CellTools<host_device_type>::subcellParamViewType subcellParam;
-  Intrepid2::CellTools<host_device_type>::getSubcellParametrization(subcellParam, subcellDim, cellTopo);
-  Kokkos::DynRankView<value_type,host_device_type> refPtsCell("refPtsCell", ndofSubcell, cellDim);
+  typename CellTools<ExecutionSpace>::subcellParamViewType subcellParam;
+  CellTools<ExecutionSpace>::getSubcellParametrization(subcellParam, subcellDim, cellTopo);
+  PointViewType refPtsCell("refPtsCell", ndofSubcell, cellDim);
   // refPtsCell = F_s (\eta_o (refPtsSubcell))
   mapSubcellCoordsToRefCell(refPtsCell,refPtsSubcell, subcellParam, subcellBaseKey, subcellId, subcellOrt);
 
@@ -179,13 +185,14 @@ getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
   //
 
   // cellBasisValues = \psi_k(F_s (\eta_o (\xi_j)))
-  Kokkos::DynRankView<value_type,host_device_type> cellBasisValues("cellBasisValues", numCellBasis, ndofSubcell);
+  BasisViewType cellBasisValues("cellBasisValues", numCellBasis, ndofSubcell);
 
   // subcellBasisValues = \phi_i (\xi_j)
-  Kokkos::DynRankView<value_type,host_device_type> subcellBasisValues("subcellBasisValues", numSubcellBasis, ndofSubcell);
+  BasisViewType subcellBasisValues("subcellBasisValues", numSubcellBasis, ndofSubcell);
 
   cellBasis.getValues(cellBasisValues, refPtsCell, OPERATOR_VALUE);
   subcellBasis.getValues(subcellBasisValues, refPtsSubcell, OPERATOR_VALUE);
+  ExecutionSpace().fence();
 
   //
   // Compute Psi_jk = \psi_k(F_s (\eta_o (\xi_j))) and Phi_ji = \phi_i (\xi_j),
@@ -194,59 +201,64 @@ getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
   //
 
   // construct Psi and Phi  matrices.  LAPACK wants left layout
-  Kokkos::DynRankView<value_type,Kokkos::LayoutLeft,host_device_type>
-    PsiMat("PsiMat", ndofSubcell, ndofSubcell),
-    PhiMat("PhiMat", ndofSubcell, ndofSubcell);
-  
-  auto cellTagToOrdinal = cellBasis.getAllDofOrdinal();
-  auto subcellTagToOrdinal = subcellBasis.getAllDofOrdinal();
+  Kokkos::View<ScalarType**,Kokkos::LayoutLeft,ExecutionSpace>
+  PsiMat("PsiMat", ndofSubcell, ndofSubcell),
+  PhiMat("PhiMat", ndofSubcell, ndofSubcell);
 
-  for (ordinal_type i=0;i<ndofSubcell;++i) {
+  auto cellTagToOrdinal = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), cellBasis.getAllDofOrdinal());
+  auto subcellTagToOrdinal = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), subcellBasis.getAllDofOrdinal());
+
+  Kokkos::parallel_for( Kokkos::RangePolicy<ExecutionSpace>(0, ndofSubcell),
+        KOKKOS_LAMBDA (const int i){
     const ordinal_type ic = cellTagToOrdinal(subcellDim, subcellId, i);
     const ordinal_type isc = subcellTagToOrdinal(subcellDim, 0, i);
     for (ordinal_type j=0;j<ndofSubcell;++j) {
-      PsiMat(j, i) = cellBasisValues(ic,j);
-      PhiMat(j, i) = subcellBasisValues(isc,j);
+      PsiMat(j, i) = get_scalar_value(cellBasisValues(ic,j));
+      PhiMat(j, i) = get_scalar_value(subcellBasisValues(isc,j));
     }
-  }
+  });
+
+  auto hostPsiMat = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), PsiMat);
+  auto hostPhiMat = Kokkos::create_mirror_view_and_copy(typename ExecutionSpace::memory_space(), PhiMat);
 
   // Solve the system
   {
-    Teuchos::LAPACK<ordinal_type,value_type> lapack;
+    Teuchos::LAPACK<ordinal_type,ScalarType> lapack;
     ordinal_type info = 0;
 
-    Kokkos::DynRankView<ordinal_type,Kokkos::LayoutLeft,host_device_type> pivVec("pivVec", ndofSubcell);
+    Kokkos::View<ordinal_type*,Kokkos::LayoutLeft,HostExecutionSpace> pivVec("pivVec", ndofSubcell);
     lapack.GESV(ndofSubcell, ndofSubcell,
-                PsiMat.data(),
-                PsiMat.stride_1(),
-                pivVec.data(),
-                PhiMat.data(),
-                PhiMat.stride_1(),
-                &info);
-    
+        hostPsiMat.data(),
+        hostPsiMat.stride_1(),
+        pivVec.data(),
+        hostPhiMat.data(),
+        hostPhiMat.stride_1(),
+        &info);
+
     if (info) {
       std::stringstream ss;
       ss << ">>> ERROR (Intrepid::OrientationTools::getCoeffMatrix_HGRAD): "
-         << "LAPACK return with error code: "
-         << info;
+          << "LAPACK return with error code: "
+          << info;
       INTREPID2_TEST_FOR_EXCEPTION( true, std::runtime_error, ss.str().c_str() );
     }
-    
+
     //After solving the system w/ LAPACK, Phi contains A^T
-    
+
+
     // transpose B and clean up numerical noise (for permutation matrices)
     const double eps = tolerence();
     for (ordinal_type i=0;i<ndofSubcell;++i) {
-      auto intmatii = std::round(PhiMat(i,i));
-      PhiMat(i,i) = (std::abs(PhiMat(i,i) - intmatii) < eps) ? intmatii : PhiMat(i,i);
+      auto intmatii = std::round(hostPhiMat(i,i));
+      hostPhiMat(i,i) = (std::abs(hostPhiMat(i,i) - intmatii) < eps) ? intmatii : hostPhiMat(i,i);
       for (ordinal_type j=i+1;j<ndofSubcell;++j) {
-        auto matij = PhiMat(i,j);
+        auto matij = hostPhiMat(i,j);
 
-        auto intmatji = std::round(PhiMat(j,i));
-        PhiMat(i,j) = (std::abs(PhiMat(j,i) - intmatji) < eps) ? intmatji : PhiMat(j,i);
+        auto intmatji = std::round(hostPhiMat(j,i));
+        hostPhiMat(i,j) = (std::abs(hostPhiMat(j,i) - intmatji) < eps) ? intmatji : hostPhiMat(j,i);
 
         auto intmatij = std::round(matij);
-        PhiMat(j,i) = (std::abs(matij - intmatij) < eps) ? intmatij : matij;
+        hostPhiMat(j,i) = (std::abs(matij - intmatij) < eps) ? intmatij : matij;
       }
     }
 
@@ -269,9 +281,7 @@ getCoeffMatrix_HGRAD(OutputViewType &output, /// this is device view
   {
     // move the data to original device memory
     const Kokkos::pair<ordinal_type,ordinal_type> range(0, ndofSubcell);
-    auto suboutput = Kokkos::subview(output, range, range);
-    auto tmp = Kokkos::create_mirror_view_and_copy(typename OutputViewType::device_type::memory_space(), PhiMat);
-    Kokkos::deep_copy(suboutput, tmp);
+    Kokkos::deep_copy(Kokkos::subview(output, range, range), hostPhiMat);
   }
 }
 }

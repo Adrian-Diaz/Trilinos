@@ -50,6 +50,5 @@
 #define TEST_CATEGORY serial
 #define TEST_CATEGORY_DEATH serial_DeathTest
 #define TEST_EXECSPACE Kokkos::Serial
-#define TEST_CATEGORY_FIXTURE(name) serial_##name
 
 #endif

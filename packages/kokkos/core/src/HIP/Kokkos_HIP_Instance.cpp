@@ -114,7 +114,7 @@ void HIPInternal::print_configuration(std::ostream &s) const {
       << (dev_info.m_hipProp[i].major) << "." << dev_info.m_hipProp[i].minor
       << ", Total Global Memory: "
       << ::Kokkos::Impl::human_memory_size(dev_info.m_hipProp[i].totalGlobalMem)
-      << ", Shared Memory per Block: "
+      << ", Shared Memory per Wavefront: "
       << ::Kokkos::Impl::human_memory_size(
              dev_info.m_hipProp[i].sharedMemPerBlock);
     if (m_hipDev == i) s << " : Selected";
@@ -140,10 +140,10 @@ HIPInternal::~HIPInternal() {
   m_maxShmemPerBlock        = 0;
   m_scratchSpaceCount       = 0;
   m_scratchFlagsCount       = 0;
-  m_scratchSpace            = nullptr;
-  m_scratchFlags            = nullptr;
+  m_scratchSpace            = 0;
+  m_scratchFlags            = 0;
   m_scratchConcurrentBitset = nullptr;
-  m_stream                  = nullptr;
+  m_stream                  = 0;
 }
 
 int HIPInternal::verify_is_initialized(const char *const label) const {
@@ -183,7 +183,7 @@ void HIPInternal::initialize(int hip_device_id, hipStream_t stream) {
 
   const HIPInternalDevices &dev_info = HIPInternalDevices::singleton();
 
-  const bool ok_init = nullptr == m_scratchSpace || nullptr == m_scratchFlags;
+  const bool ok_init = 0 == m_scratchSpace || 0 == m_scratchFlags;
 
   // Need at least a GPU device
   const bool ok_id =
@@ -195,11 +195,9 @@ void HIPInternal::initialize(int hip_device_id, hipStream_t stream) {
     m_hipDev     = hip_device_id;
     m_deviceProp = hipProp;
 
-    HIP_SAFE_CALL(hipSetDevice(m_hipDev));
+    hipSetDevice(m_hipDev);
 
-    m_stream                    = stream;
-    m_team_scratch_current_size = 0;
-    m_team_scratch_ptr          = nullptr;
+    m_stream = stream;
 
     // number of multiprocessors
     m_multiProcCount = hipProp.multiProcessorCount;
@@ -218,19 +216,14 @@ void HIPInternal::initialize(int hip_device_id, hipStream_t stream) {
     m_maxBlock = hipProp.maxGridSize[0];
 
     // theoretically, we can get 40 WF's / CU, but only can sustain 32
-    // see
-    // https://github.com/ROCm-Developer-Tools/HIP/blob/a0b5dfd625d99af7e288629747b40dd057183173/vdi/hip_platform.cpp#L742
     m_maxBlocksPerSM = 32;
     // FIXME_HIP - Nick to implement this upstream
-    //             Register count comes from Sec. 2.2. "Data Sharing" of the
-    //             Vega 7nm ISA document (see the diagram)
-    //             https://developer.amd.com/wp-content/resources/Vega_7nm_Shader_ISA.pdf
-    //             VGPRS = 4 (SIMD/CU) * 256 VGPR/SIMD * 64 registers / VGPR =
-    //             65536 VGPR/CU
-    m_regsPerSM        = 65536;
-    m_shmemPerSM       = hipProp.maxSharedMemoryPerMultiProcessor;
-    m_maxShmemPerBlock = hipProp.sharedMemPerBlock;
-    m_maxThreadsPerSM  = m_maxBlocksPerSM * HIPTraits::WarpSize;
+    m_regsPerSM          = 262144 / 32;
+    m_shmemPerSM         = hipProp.maxSharedMemoryPerMultiProcessor;
+    m_maxShmemPerBlock   = hipProp.sharedMemPerBlock;
+    m_maxThreadsPerSM    = m_maxBlocksPerSM * HIPTraits::WarpSize;
+    m_maxThreadsPerBlock = hipProp.maxThreadsPerBlock;
+
     //----------------------------------
     // Multiblock reduction uses scratch flags for counters
     // and scratch space for partial reduction values.
@@ -284,7 +277,8 @@ void HIPInternal::initialize(int hip_device_id, hipStream_t stream) {
   }
 
   // Init the array for used for arbitrarily sized atomics
-  if (m_stream == nullptr) ::Kokkos::Impl::initialize_host_hip_lock_arrays();
+  // FIXME_HIP uncomment this when global variable works
+  // if (m_stream == 0) ::Kokkos::Impl::initialize_host_hip_lock_arrays();
 }
 
 //----------------------------------------------------------------------------
@@ -333,35 +327,18 @@ Kokkos::Experimental::HIP::size_type *HIPInternal::scratch_flags(
 
     m_scratchFlags = reinterpret_cast<size_type *>(r->data());
 
-    HIP_SAFE_CALL(
-        hipMemset(m_scratchFlags, 0, m_scratchFlagsCount * sizeScratchGrain));
+    hipMemset(m_scratchFlags, 0, m_scratchFlagsCount * sizeScratchGrain);
   }
 
   return m_scratchFlags;
 }
 
-void *HIPInternal::resize_team_scratch_space(std::int64_t bytes,
-                                             bool force_shrink) {
-  if (m_team_scratch_current_size == 0) {
-    m_team_scratch_current_size = bytes;
-    m_team_scratch_ptr = Kokkos::kokkos_malloc<Kokkos::Experimental::HIPSpace>(
-        "HIPSpace::ScratchMemory", m_team_scratch_current_size);
-  }
-  if ((bytes > m_team_scratch_current_size) ||
-      ((bytes < m_team_scratch_current_size) && (force_shrink))) {
-    m_team_scratch_current_size = bytes;
-    m_team_scratch_ptr = Kokkos::kokkos_realloc<Kokkos::Experimental::HIPSpace>(
-        m_team_scratch_ptr, m_team_scratch_current_size);
-  }
-  return m_team_scratch_ptr;
-}
-
 //----------------------------------------------------------------------------
 
 void HIPInternal::finalize() {
-  this->fence();
+  HIP().fence();
   was_finalized = true;
-  if (nullptr != m_scratchSpace || nullptr != m_scratchFlags) {
+  if (0 != m_scratchSpace || 0 != m_scratchFlags) {
     using RecordHIP =
         Kokkos::Impl::SharedAllocationRecord<Kokkos::Experimental::HIPSpace>;
 
@@ -369,24 +346,19 @@ void HIPInternal::finalize() {
     RecordHIP::decrement(RecordHIP::get_record(m_scratchSpace));
     RecordHIP::decrement(RecordHIP::get_record(m_scratchConcurrentBitset));
 
-    if (m_team_scratch_current_size > 0)
-      Kokkos::kokkos_free<Kokkos::Experimental::HIPSpace>(m_team_scratch_ptr);
-
-    m_hipDev                    = -1;
-    m_hipArch                   = -1;
-    m_multiProcCount            = 0;
-    m_maxWarpCount              = 0;
-    m_maxBlock                  = 0;
-    m_maxSharedWords            = 0;
-    m_maxShmemPerBlock          = 0;
-    m_scratchSpaceCount         = 0;
-    m_scratchFlagsCount         = 0;
-    m_scratchSpace              = nullptr;
-    m_scratchFlags              = nullptr;
-    m_scratchConcurrentBitset   = nullptr;
-    m_stream                    = nullptr;
-    m_team_scratch_current_size = 0;
-    m_team_scratch_ptr          = nullptr;
+    m_hipDev                  = -1;
+    m_hipArch                 = -1;
+    m_multiProcCount          = 0;
+    m_maxWarpCount            = 0;
+    m_maxBlock                = 0;
+    m_maxSharedWords          = 0;
+    m_maxShmemPerBlock        = 0;
+    m_scratchSpaceCount       = 0;
+    m_scratchFlagsCount       = 0;
+    m_scratchSpace            = 0;
+    m_scratchFlags            = 0;
+    m_scratchConcurrentBitset = nullptr;
+    m_stream                  = 0;
   }
 }
 

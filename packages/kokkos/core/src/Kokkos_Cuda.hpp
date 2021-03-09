@@ -62,7 +62,6 @@
 #include <Kokkos_ScratchSpace.hpp>
 #include <Kokkos_MemoryTraits.hpp>
 #include <impl/Kokkos_Tags.hpp>
-#include <impl/Kokkos_ExecSpaceInitializer.hpp>
 
 /*--------------------------------------------------------------------------*/
 
@@ -271,20 +270,6 @@ struct DeviceTypeTraits<Cuda> {
 };
 }  // namespace Experimental
 }  // namespace Tools
-
-namespace Impl {
-
-class CudaSpaceInitializer : public ExecSpaceInitializerBase {
- public:
-  CudaSpaceInitializer()  = default;
-  ~CudaSpaceInitializer() = default;
-  void initialize(const InitArguments& args) final;
-  void finalize(const bool all_spaces) final;
-  void fence() final;
-  void print_configuration(std::ostream& msg, const bool detail) final;
-};
-
-}  // namespace Impl
 }  // namespace Kokkos
 
 /*--------------------------------------------------------------------------*/
@@ -296,9 +281,9 @@ namespace Impl {
 template <>
 struct MemorySpaceAccess<Kokkos::CudaSpace,
                          Kokkos::Cuda::scratch_memory_space> {
-  enum : bool { assignable = false };
-  enum : bool { accessible = true };
-  enum : bool { deepcopy = false };
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy = false };
 };
 
 #if defined(KOKKOS_ENABLE_CUDA_UVM)
@@ -312,9 +297,9 @@ struct MemorySpaceAccess<Kokkos::CudaSpace,
 template <>
 struct MemorySpaceAccess<Kokkos::CudaUVMSpace,
                          Kokkos::Cuda::scratch_memory_space> {
-  enum : bool { assignable = false };
-  enum : bool { accessible = true };
-  enum : bool { deepcopy = false };
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy = false };
 };
 
 #endif
@@ -322,7 +307,7 @@ struct MemorySpaceAccess<Kokkos::CudaUVMSpace,
 template <>
 struct VerifyExecutionCanAccessMemorySpace<Kokkos::CudaSpace,
                                            Kokkos::Cuda::scratch_memory_space> {
-  enum : bool { value = true };
+  enum { value = true };
   KOKKOS_INLINE_FUNCTION static void verify(void) {}
   KOKKOS_INLINE_FUNCTION static void verify(const void*) {}
 };
@@ -330,7 +315,7 @@ struct VerifyExecutionCanAccessMemorySpace<Kokkos::CudaSpace,
 template <>
 struct VerifyExecutionCanAccessMemorySpace<Kokkos::HostSpace,
                                            Kokkos::Cuda::scratch_memory_space> {
-  enum : bool { value = false };
+  enum { value = false };
   inline static void verify(void) { CudaSpace::access_error(); }
   inline static void verify(const void* p) { CudaSpace::access_error(p); }
 };

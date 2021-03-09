@@ -15,7 +15,7 @@
 
 namespace Tempus {
 
-// Forward Declaration
+// Forward Declaration for recursive includes (this Observer <--> Stepper)
 template<class Scalar> class StepperOperatorSplit;
 
 /** \brief StepperOperatorSplitAppAction class for StepperOperatorSplit.

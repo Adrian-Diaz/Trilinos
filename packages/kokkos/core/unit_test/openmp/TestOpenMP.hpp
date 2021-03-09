@@ -56,6 +56,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <TestSharedAlloc.hpp>
 #include <TestViewMapping.hpp>
 #include <TestViewAPI.hpp>
 #include <TestViewOfClass.hpp>

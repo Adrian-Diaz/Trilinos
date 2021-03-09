@@ -36,6 +36,7 @@
 #include "stk_balance/fixSplitCoincidentElements.hpp"
 #include "stk_tools/mesh_clone/MeshClone.hpp"
 #include "stk_tools/transfer_utils/TransientFieldTransferById.hpp"
+#include <stk_util/parallel/ParallelReduceBool.hpp>
 
 #include <sys/stat.h> // move us
 #include <algorithm>

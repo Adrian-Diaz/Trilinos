@@ -1,59 +1,59 @@
 #include <stk_mesh/base/SideSetEntry.hpp>
 #include "stk_mesh/base/BulkData.hpp"
-#include "stk_mesh/base/MetaData.hpp"
 #include "stk_util/util/ReportHandler.hpp"
-#include "stk_mesh/baseImpl/elementGraph/ElemElemGraphImpl.hpp"
-#include "stk_mesh/baseImpl/elementGraph/ElemGraphCoincidentElems.hpp"
 
 namespace stk
 {
 namespace mesh
 {
     SideSet::SideSet(const BulkData& bulk, bool fromInput)
-    : m_bulk(bulk), m_fromInput(fromInput), m_part(nullptr), m_acceptAllInternalNonCoincidentEntries(true)
+    : m_bulk(bulk), m_fromInput(fromInput), m_part(nullptr)
     {
 
     }
 
     SideSet::SideSet(const BulkData& bulk, const std::vector<SideSetEntry>& data, bool fromInput)
-    : m_bulk(bulk), m_fromInput(fromInput), m_data(data), m_part(nullptr), m_acceptAllInternalNonCoincidentEntries(true)
+    : m_bulk(bulk), m_fromInput(fromInput), m_data(data), m_part(nullptr)
     {
 
     }
 
     bool SideSet::is_from_input() const
     {
-        return m_fromInput;
+    	return m_fromInput;
     }
 
-    void SideSet::set_from_input(bool fromInput)
+    void SideSet::add(const SideSetEntry& entry)
     {
-      m_fromInput = fromInput;
-    }
-
-    bool SideSet::add(const SideSetEntry& entry)
-    {
-        ThrowRequireMsg(m_bulk.entity_rank(entry.element) == stk::topology::ELEMENT_RANK,
+    	ThrowRequireMsg(m_bulk.entity_rank(entry.element) == stk::topology::ELEMENT_RANK,
                        "ERROR, stk::mesh::SideSet::add only allows element-rank entities.");
-
-	bool modified = stk::util::insert_keep_sorted_and_unique(entry, m_data);
-	m_isModified |= modified;
-	return modified;
+    	stk::util::insert_keep_sorted_and_unique(entry, m_data);
     }
 
-    bool SideSet::add(Entity element, ConnectivityOrdinal side)
+    void SideSet::add(stk::mesh::Entity element, stk::mesh::ConnectivityOrdinal side)
     {
-        return add(SideSetEntry{element, side});
+        add(SideSetEntry{element, side});
     }
 
-    bool SideSet::add(const std::vector<SideSetEntry>& entries)
+    void SideSet::add(const std::vector<SideSetEntry>& entries)
     {
-        size_t oldSize = m_data.size();
         m_data.insert(m_data.end(), entries.begin(), entries.end());
         stk::util::sort_and_unique(m_data);
-        bool modified = oldSize != m_data.size();
-        m_isModified |= modified;
-        return modified;
+    }
+
+    bool SideSet::contains(const SideSetEntry& entry) const
+    {
+        std::vector<SideSetEntry>::const_iterator beginIter = begin();
+        std::vector<SideSetEntry>::const_iterator endIter = end();
+
+        std::vector<SideSetEntry>::const_iterator lowerBound = std::lower_bound(beginIter, endIter, entry);
+        std::vector<SideSetEntry>::const_iterator upperBound = std::upper_bound(beginIter, endIter, entry);
+        return (lowerBound != upperBound && lowerBound != endIter);
+    }
+
+    bool SideSet::contains(stk::mesh::Entity elem, stk::mesh::ConnectivityOrdinal side) const
+    {
+    	return contains(SideSetEntry{elem, side});
     }
 
     SideSetEntry SideSet::operator[](unsigned index) const
@@ -71,37 +71,52 @@ namespace mesh
 
     std::vector<SideSetEntry>::iterator SideSet::erase(std::vector<SideSetEntry>::iterator iter)
     {
-        m_isModified = true;
-	return m_data.erase(iter);
+    	return m_data.erase(iter);
     }
 
     std::vector<SideSetEntry>::iterator SideSet::erase(std::vector<SideSetEntry>::iterator begin, std::vector<SideSetEntry>::iterator end)
     {
-      m_isModified = true;
       return m_data.erase(begin, end);
+    }
+
+    std::vector<SideSetEntry>::iterator SideSet::begin()
+    {
+    	return m_data.begin();
+    }
+
+    std::vector<SideSetEntry>::iterator SideSet::end()
+    {
+    	return m_data.end();
+    }
+
+    std::vector<SideSetEntry>::const_iterator SideSet::begin() const
+    {
+    	return m_data.begin();
+    }
+
+    std::vector<SideSetEntry>::const_iterator SideSet::end() const
+    {
+    	return m_data.end();
     }
 
     void SideSet::clear()
     {
-      if(!m_data.empty()) {
-        m_isModified = true;
-        m_data.clear();
-      }
+    	m_data.clear();
     }
 
     size_t SideSet::size() const
     {
-        return m_data.size();
+    	return m_data.size();
     }
 
     void SideSet::resize(size_t n)
     {
-        m_data.resize(n);
+    	m_data.resize(n);
     }
 
     const std::string& SideSet::get_name() const
     {
-        return m_name;
+    	return m_name;
     }
 
     void SideSet::set_name(const std::string& name)
@@ -109,7 +124,7 @@ namespace mesh
     	m_name = name;
     }
 
-    void SideSet::set_part(const Part* part)
+    void SideSet::set_part(const stk::mesh::Part* part)
     {
         m_part = part;
         if(nullptr != part) {
@@ -117,10 +132,31 @@ namespace mesh
         }
     }
 
-    const Part* SideSet::get_part() const
+    const stk::mesh::Part* SideSet::get_part() const
     {
       return m_part;
     }
 
+    void remove_element_entries_from_sidesets(BulkData& mesh, const Entity entity, std::set<const stk::mesh::Part*> *touchedSidesetParts)
+    {
+      if (mesh.entity_rank(entity) == stk::topology::ELEMENT_RANK && mesh.num_sides(entity) > 0)
+      {
+        std::vector<SideSet* > sidesets = mesh.get_sidesets();
+        for (stk::mesh::SideSet* sideset : sidesets)
+        {
+          std::vector<SideSetEntry>::iterator lowerBound = std::lower_bound(sideset->begin(), sideset->end(), SideSetEntry(entity, 0));
+          std::vector<SideSetEntry>::iterator upperBound = std::upper_bound(sideset->begin(), sideset->end(), SideSetEntry(entity, INVALID_CONNECTIVITY_ORDINAL));
+          sideset->erase(lowerBound, upperBound);
+
+          if(nullptr != touchedSidesetParts) {
+            const stk::mesh::Part* part = sideset->get_part();
+
+            if(nullptr != part) {
+              touchedSidesetParts->insert(part);
+            }
+          }
+        }
+      }
+    }
 }
 }

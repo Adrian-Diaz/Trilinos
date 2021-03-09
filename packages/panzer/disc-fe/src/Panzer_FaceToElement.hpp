@@ -100,18 +100,18 @@ public:
   int getRightProc (GlobalOrdinal face_id) const 
   {LocalOrdinal lid = face_map_->getLocalElement(face_id); return procs_by_face_(lid,1);}
 
-  PHX::View<const GlobalOrdinal*[2]> getFaceToElementsMap() const
+  Kokkos::View<const GlobalOrdinal*[2]> getFaceToElementsMap() const
   { return elems_by_face_; }
 
-  PHX::View<const int*[2]> getFaceToCellLocalIdxMap() const
+  Kokkos::View<const int*[2]> getFaceToCellLocalIdxMap() const
   { return lidx_by_face_; }
 
 protected:
 
-  PHX::View<GlobalOrdinal *[2]> elems_by_face_;
-  PHX::View<int *[2]> lidx_by_face_;
-  PHX::View<int *[2]> blocks_by_face_;
-  PHX::View<int *[2]> procs_by_face_;
+  Kokkos::View<GlobalOrdinal *[2]> elems_by_face_;
+  Kokkos::View<int *[2]> lidx_by_face_;
+  Kokkos::View<int *[2]> blocks_by_face_;
+  Kokkos::View<int *[2]> procs_by_face_;
 
   typedef Kokkos::Compat::KokkosDeviceWrapperNode<PHX::Device> NodeType;
   typedef Tpetra::Map<LocalOrdinal, GlobalOrdinal, NodeType> Map;

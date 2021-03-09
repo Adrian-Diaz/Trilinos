@@ -1,8 +1,6 @@
+#include <gtest/gtest.h>
 
-#include "gtest/gtest.h"
-#include "stk_util/util/RemoveIntersection.hpp"  // for remove_intersection
-#include <functional>                            // for less
-#include <vector>                                // for vector
+#include <stk_util/util/RemoveIntersection.hpp>
 
 
 TEST(RemoveIntersection, disjoint)

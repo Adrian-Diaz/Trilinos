@@ -45,6 +45,7 @@
 #define KokkosCentroidCalculation_hpp
 
 #include <stk_unit_test_utils/getOption.h>
+#include <stk_unit_test_utils/ioUtils.hpp>
 #include <stk_util/stk_config.h>
 
 #include <Kokkos_Core.hpp>

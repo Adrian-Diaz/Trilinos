@@ -70,7 +70,7 @@ namespace Intrepid2 {
       };                                                                \
     }
     
-    template<typename ValueType, typename DeviceType>
+    template<typename ValueType, typename DeviceSpaceType>
     int PointTools_Test01(const bool verbose) {
       Teuchos::RCP<std::ostream> outStream;
       Teuchos::oblackholestream bhs; // outputs nothing
@@ -83,7 +83,6 @@ namespace Intrepid2 {
       Teuchos::oblackholestream oldFormatState;
       oldFormatState.copyfmt(std::cout);
 
-      using DeviceSpaceType = typename DeviceType::execution_space;
       typedef typename
         Kokkos::Impl::is_space<DeviceSpaceType>::host_mirror_space::execution_space HostSpaceType ;
 
@@ -168,7 +167,7 @@ namespace Intrepid2 {
         << "| TEST 2: malformed point arrays                                               \n" 
         << "===============================================================================\n";
 #ifdef HAVE_INTREPID2_DEBUG
-      typedef Kokkos::DynRankView<ValueType,DeviceType> DynRankView;
+      typedef Kokkos::DynRankView<ValueType,DeviceSpaceType> DynRankView;
       try {
         const shards::CellTopology line( shards::getCellTopologyData< shards::Line<2> >() );      
         ordinal_type nthrow = 0, ncatch = 0;

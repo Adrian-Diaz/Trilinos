@@ -32,8 +32,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/environment/WallTime.hpp"
-#include <sys/time.h>  // for gettimeofday, timeval, timezone
+#include <stk_util/environment/WallTime.hpp>
+
+#include <sys/time.h>
 
 namespace stk {
 

@@ -53,9 +53,8 @@ int main(int argc, char *argv[]) {
 
   const bool verbose = (argc-1) > 0;
   Kokkos::initialize();
-
-  using device_type = Kokkos::Device<Kokkos::Cuda,Kokkos::CudaSpace>;
-  const int r_val = Intrepid2::Test::OrientationToolsModifyBasis_QUAD_HCURLI1<device_type >(verbose);
+  
+  const int r_val = Intrepid2::Test::OrientationToolsModifyBasis_QUAD_HCURLI1<Kokkos::Cuda>(verbose);
 
   Kokkos::finalize();
   return r_val;

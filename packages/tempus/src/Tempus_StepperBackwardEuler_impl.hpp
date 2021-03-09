@@ -9,12 +9,18 @@
 #ifndef Tempus_StepperBackwardEuler_impl_hpp
 #define Tempus_StepperBackwardEuler_impl_hpp
 
+#include "Tempus_config.hpp"
+#include "Tempus_StepperFactory.hpp"
 #include "Tempus_StepperBackwardEulerModifierDefault.hpp"
 #include "Tempus_WrapperModelEvaluatorBasic.hpp"
-#include "Tempus_StepperFactory.hpp"
+#include "Teuchos_VerboseObjectParameterListHelpers.hpp"
+#include "NOX_Thyra.H"
 
 
 namespace Tempus {
+
+// Forward Declaration for recursive includes (this Stepper <--> StepperFactory)
+template<class Scalar> class StepperFactory;
 
 
 template<class Scalar>
@@ -28,7 +34,7 @@ StepperBackwardEuler<Scalar>::StepperBackwardEuler()
 
   this->setAppAction(Teuchos::null);
   this->setDefaultSolver();
-  this->setPredictor();
+  this->setPredictor("None");
 }
 
 
@@ -60,6 +66,7 @@ StepperBackwardEuler<Scalar>::StepperBackwardEuler(
 }
 
 
+/// Set the predictor to a Stepper with default settings.
 template<class Scalar>
 void StepperBackwardEuler<Scalar>::setPredictor(std::string predictorType)
 {
@@ -68,14 +75,15 @@ void StepperBackwardEuler<Scalar>::setPredictor(std::string predictorType)
     return;
   }
 
-  auto sf = Teuchos::rcp(new StepperFactory<Scalar>());
-  if (this->wrapperModel_ != Teuchos::null &&
-      this->wrapperModel_->getAppModel() != Teuchos::null) {
-    predictorStepper_ = sf->createStepper(predictorType,
-                                          this->wrapperModel_->getAppModel());
-  } else {
-    predictorStepper_ = sf->createStepper(predictorType);
-  }
+  TEUCHOS_TEST_FOR_EXCEPTION(
+    this->wrapperModel_->getAppModel() == Teuchos::null, std::logic_error,
+    "Error - Need to set the model, setModel(), before calling "
+    "StepperBackwardEuler::setPredictor()\n");
+
+  using Teuchos::RCP;
+  RCP<StepperFactory<Scalar> > sf = Teuchos::rcp(new StepperFactory<Scalar>());
+  predictorStepper_ =
+    sf->createStepper(predictorType, this->wrapperModel_->getAppModel());
 
   this->isInitialized_ = false;
 }
@@ -425,34 +433,6 @@ StepperBackwardEuler<Scalar>::computeStepResidDerivImpl(
   }
   this->wrapperModel_->getAppModel()->evalModel(inArgs, outArgs);
 }
-
-
-// Nonmember constructor - ModelEvaluator and ParameterList
-// ------------------------------------------------------------------------
-template<class Scalar>
-Teuchos::RCP<StepperBackwardEuler<Scalar> >
-createStepperBackwardEuler(
-  const Teuchos::RCP<const Thyra::ModelEvaluator<Scalar> >& model,
-  Teuchos::RCP<Teuchos::ParameterList> pl)
-{
-  auto stepper = Teuchos::rcp(new StepperBackwardEuler<Scalar>());
-
-  stepper->setStepperImplicitValues(pl);
-
-  if (model != Teuchos::null) {
-    stepper->setModel(model);
-
-    if (pl != Teuchos::null) {
-      std::string predictorName =
-        pl->get<std::string>("Predictor Stepper Type", "None");
-      stepper->setPredictor(predictorName);
-    }
-    stepper->initialize();
-  }
-
-  return stepper;
-}
-
 
 } // namespace Tempus
 #endif // Tempus_StepperBackwardEuler_impl_hpp

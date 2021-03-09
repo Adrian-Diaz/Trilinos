@@ -74,7 +74,7 @@
 #include <Thyra_VectorSpaceBase_decl.hpp>
 
 // Stratimikos includes
-#include <Stratimikos_FROSch_def.hpp>
+#include <Stratimikos_FROSchXpetra.hpp>
 
 #include <Tpetra_Core.hpp>
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 
     RCP<FancyOStream> out = VerboseObjectBase::getDefaultOStream();
 
-    int M = 3;
+    int M = 4;
     My_CLP.setOption("M",&M,"H / h.");
     int Dimension = 2;
     My_CLP.setOption("DIM",&Dimension,"Dimension.");

@@ -82,8 +82,6 @@
 
 #if defined(KOKKOS_ENABLE_CUDA)
   typedef Kokkos::Cuda default_device;
-#elif defined(KOKKOS_ENABLE_HIP)
-  typedef Kokkos::Experimental::HIP default_device;
 #elif defined(KOKKOS_ENABLE_OPENMP)
   typedef Kokkos::OpenMP default_device;
 #elif defined(KOKKOS_ENABLE_PTHREAD) || defined(KOKKOS_ENABLE_THREADS)

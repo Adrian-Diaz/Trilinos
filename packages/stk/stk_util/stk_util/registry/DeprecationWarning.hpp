@@ -9,8 +9,8 @@
 #ifndef STK_UTIL_INCLUDE_DEPRECATIONWARNING_H_
 #define STK_UTIL_INCLUDE_DEPRECATIONWARNING_H_
 
-#include "stk_util/registry/VersionNumber.hpp"  // for VersionNumber
-#include <sstream>                              // for ostringstream
+#include <sstream>
+#include <stk_util/registry/VersionNumber.hpp>
 
 namespace stk
 {

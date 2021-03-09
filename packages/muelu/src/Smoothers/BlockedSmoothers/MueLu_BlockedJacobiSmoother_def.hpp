@@ -295,12 +295,14 @@ namespace MueLu {
 
     // outer Richardson loop
     for (LocalOrdinal run = 0; run < nSweeps; ++run) {
-      residual->update(1.0,*rcpB,0.0); // r = B
-      if(InitialGuessIsZero == false || run > 0){
-        bA->apply(*rcpX, *residual, Teuchos::NO_TRANS, -1.0, 1.0);
-      }
       // one sweep of Jacobi: loop over all block rows
       for(size_t i = 0; i<Inverse_.size(); i++) {
+
+        // calculate block residual r = B-A*X
+        // note: A_ is the full blocked operator
+        residual->update(1.0,*rcpB,0.0); // r = B
+        if(InitialGuessIsZero == false || i > 0 || run > 0)
+          bA->bgs_apply(*rcpX, *residual, i, Teuchos::NO_TRANS, -1.0, 1.0);
 
         // extract corresponding subvectors from X and residual
         bool bRangeThyraMode =  rangeMapExtractor_->getThyraMode();
@@ -313,11 +315,7 @@ namespace MueLu {
         Inverse_.at(i)->Apply(*tXi, *ri, false);
 
         // update vector
-        if( InitialGuessIsZero && run == 0 ){
-          Xi->update(omega,*tXi,0.0); // X_{i+1} = X_i + omega \Delta X_i
-        } else {
-          Xi->update(omega,*tXi,1.0); // X_{i+1} = X_i + omega \Delta X_i
-        }
+        Xi->update(omega,*tXi,1.0); // X_{i+1} = X_i + omega \Delta X_i
 
       }
     }

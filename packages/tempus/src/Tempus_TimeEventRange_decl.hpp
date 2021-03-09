@@ -15,7 +15,6 @@
 #include "Teuchos_Time.hpp"
 
 // Tempus
-#include "Tempus_config.hpp"
 #include "Tempus_TimeEventBase.hpp"
 
 

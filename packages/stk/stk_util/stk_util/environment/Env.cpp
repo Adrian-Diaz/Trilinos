@@ -34,28 +34,35 @@
 // 
  */
 
-#include "stk_util/environment/Env.hpp"
-#include "stk_util/environment/EnvData.hpp"               // for EnvData, EXEC_TYPE_PEER, EnvDat...
-#include "stk_util/environment/ParseCommandLineArgs.hpp"  // for parse_command_line_args
-#include "stk_util/environment/ParsedOptions.hpp"         // for ParsedOptions, VariableType
-#include "stk_util/environment/ProgramOptions.hpp"        // for get_options_specification, get_...
-#include "stk_util/environment/RuntimeMessage.hpp"        // for report_deferred_messages
-#include "stk_util/parallel/ParallelReduce.hpp"           // for all_write_string
-#include "stk_util/stk_config.h"                          // for STK_HAS_MPI
-#include "stk_util/util/Signal.hpp"                       // for HUP_received
-#include <limits.h>                                       // for PATH_MAX
-#include <time.h>                                         // for localtime, strftime, time_t
-#include <unistd.h>                                       // for getcwd, sleep
-#include <cstdlib>                                        // for exit, EXIT_FAILURE, size_t
-#include <cstring>                                        // for strlen, strcpy
-#include <iomanip>                                        // for operator<<, setw
-#include <iostream>                                       // for operator<<, basic_ostream, endl
-#include <string>                                         // for string, operator<<, char_traits
+#include <stk_util/stk_config.h>
+
+#include <stk_util/environment/Env.hpp>
+#include <time.h>                       // for localtime, strftime, time_t
+#include <limits.h>                     // for PATH_MAX
+#include <stddef.h>                     // for size_t
+#include <unistd.h>                     // for getcwd, sleep
+#include <cstdlib>                      // for exit, EXIT_FAILURE
+#include <cstring>                      // for strlen, strcpy
+#include <iomanip>                      // for operator<<, setw
+#include <iostream>                     // for cerr, cout
+#include <map>                          // for map<>::mapped_type
+#include <sstream>                      // for basic_ostream, operator<<, etc
+#include <stk_util/util/Signal.hpp>     // for HUP_received
+#include <stk_util/environment/RuntimeMessage.hpp>
+#include <stk_util/environment/ParseCommandLineArgs.hpp>
+#include <stk_util/parallel/ParallelReduce.hpp>  // for all_write_string
+#include <string>                       // for string, operator<<, etc
+
+#include "stk_util/util/ReportHandler.hpp"  // for ThrowRequire
 
 #if defined(__GNUC__)
-#include <sys/resource.h>                                 // for rusage, getrusage, RUSAGE_SELF
-#include <sys/time.h>                                     // for timeval, gettimeofday, timezone
+#include <sys/time.h>
+#include <sys/resource.h>
 #endif
+
+#include <stk_util/environment/EnvData.hpp>  // for EnvData, etc
+#include <stk_util/environment/ProgramOptions.hpp>
+
 
 using namespace std;
 

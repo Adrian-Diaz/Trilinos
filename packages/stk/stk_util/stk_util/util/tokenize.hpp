@@ -35,8 +35,8 @@
 #ifndef STK_UTIL_UTIL_TOKENIZE_H
 #define STK_UTIL_UTIL_TOKENIZE_H
 
-#include <string>  // for string
-#include <vector>  // for vector
+#include <string>
+#include <vector>
 
 namespace stk {
 namespace util {

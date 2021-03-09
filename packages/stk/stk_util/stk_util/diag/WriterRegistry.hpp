@@ -35,16 +35,17 @@
 #ifndef STK_UTIL_DIAG_WriterRegistry_h
 #define STK_UTIL_DIAG_WriterRegistry_h
 
-#include "stk_util/diag/Option.hpp"               // for OptionMaskParser
-#include "stk_util/util/Writer_fwd.hpp"           // for Writer
-#include "stk_util/util/string_case_compare.hpp"  // for LessCase
-#include <map>                                    // for map
-#include <string>                                 // for string
-#include <utility>                                // for pair
-#include <vector>                                 // for vector
+#include <map>                           // for map
+#include <stk_util/util/Writer_fwd.hpp>  // for Writer
+#include <stk_util/util/string_case_compare.hpp>  // for LessCase
+#include <string>                       // for string
+#include <utility>                      // for pair
+#include <vector>                       // for vector
+#include "stk_util/diag/Option.hpp"     // for OptionMaskParser
 
 namespace stk { namespace diag { class Writer; } }
 namespace stk { namespace diag { class WriterThrowSafe; } }
+
 
 namespace sierra {
 namespace Diag {

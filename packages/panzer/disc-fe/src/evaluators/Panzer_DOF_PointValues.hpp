@@ -106,7 +106,7 @@ private:
   bool is_vector_basis;
 
   bool accelerate_jacobian;
-  PHX::View<int*> offsets_array;
+  Kokkos::View<int*,PHX::Device> offsets_array;
 
   Teuchos::RCP<const PureBasis> basis;
   Teuchos::RCP<BasisValues2<double> > basisValues;

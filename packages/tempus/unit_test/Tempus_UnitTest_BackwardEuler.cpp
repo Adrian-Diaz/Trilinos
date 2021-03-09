@@ -13,10 +13,8 @@
 
 #include "Thyra_VectorStdOps.hpp"
 
+#include "Tempus_StepperFactory.hpp"
 #include "Tempus_SolutionHistory.hpp"
-#include "Tempus_StepperForwardEuler.hpp"
-#include "Tempus_StepperBackwardEuler.hpp"
-
 #include "Tempus_StepperBackwardEulerModifierBase.hpp"
 #include "Tempus_StepperBackwardEulerModifierXBase.hpp"
 #include "Tempus_StepperBackwardEulerObserverBase.hpp"
@@ -42,6 +40,7 @@ using Teuchos::ParameterList;
 using Teuchos::sublist;
 using Teuchos::getParametersFromXmlFile;
 
+using Tempus::StepperFactory;
 
 
 // ************************************************************

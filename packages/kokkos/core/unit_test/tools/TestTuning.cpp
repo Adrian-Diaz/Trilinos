@@ -53,6 +53,8 @@
 
 static size_t expectedNumberOfContextVariables;
 static int64_t expectedContextVariableValue;
+static std::unordered_map<size_t, Kokkos::Tools::Experimental::SetOrRange>
+    candidate_value_map;
 
 int main() {
   Kokkos::initialize();

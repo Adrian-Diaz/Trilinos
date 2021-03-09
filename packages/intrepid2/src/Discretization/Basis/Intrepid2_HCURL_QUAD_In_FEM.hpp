@@ -87,7 +87,7 @@ namespace Intrepid2 {
         }
       };
       
-      template<typename DeviceType, ordinal_type numPtsPerEval,
+      template<typename ExecSpaceType, ordinal_type numPtsPerEval,
                typename outputValueValueType, class ...outputValueProperties,
                typename inputPointValueType,  class ...inputPointProperties,
                typename vinvValueType,        class ...vinvProperties>
@@ -162,32 +162,32 @@ namespace Intrepid2 {
       \brief  Implementation of the default H(curl)-compatible FEM basis on Quadrilateral cell 
   */
 
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename outputValueType = double,
            typename pointValueType = double>
   class Basis_HCURL_QUAD_In_FEM
-    : public Basis<DeviceType,outputValueType,pointValueType> {
+    : public Basis<ExecSpaceType,outputValueType,pointValueType> {
   public:
-    using OrdinalTypeArray1DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
-    using OrdinalTypeArray2DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
-    using OrdinalTypeArray3DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
+    using OrdinalTypeArray1DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
+    using OrdinalTypeArray2DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
+    using OrdinalTypeArray3DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
 
     /** \brief  Constructor.
      */
     Basis_HCURL_QUAD_In_FEM(const ordinal_type order,
                             const EPointType   pointType = POINTTYPE_EQUISPACED);
 
-    using OutputViewType = typename Basis<DeviceType,outputValueType,pointValueType>::OutputViewType;
-    using PointViewType  = typename Basis<DeviceType,outputValueType,pointValueType>::PointViewType;
-    using ScalarViewType = typename Basis<DeviceType,outputValueType,pointValueType>::ScalarViewType;
+    using OutputViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OutputViewType;
+    using PointViewType  = typename Basis<ExecSpaceType,outputValueType,pointValueType>::PointViewType;
+    using ScalarViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::ScalarViewType;
 
-    using Basis<DeviceType,outputValueType,pointValueType>::getValues;
+    using Basis<ExecSpaceType,outputValueType,pointValueType>::getValues;
 
     virtual
     void
     getValues(       OutputViewType outputValues,
                const PointViewType  inputPoints,
-               const EOperator operatorType = OPERATOR_VALUE ) const override {
+               const EOperator operatorType = OPERATOR_VALUE ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       Intrepid2::getValues_HCURL_Args(outputValues,
                                       inputPoints,
@@ -197,7 +197,7 @@ namespace Intrepid2 {
 #endif
       constexpr ordinal_type numPtsPerEval = Parameters::MaxNumPtsPerBasisEval;
       Impl::Basis_HCURL_QUAD_In_FEM::
-        getValues<DeviceType,numPtsPerEval>( outputValues,
+        getValues<ExecSpaceType,numPtsPerEval>( outputValues,
                                                 inputPoints,
                                                 this->vinvLine_,
                                                 this->vinvBubble_,
@@ -206,7 +206,7 @@ namespace Intrepid2 {
 
     virtual
     void
-    getDofCoords( ScalarViewType dofCoords ) const override {
+    getDofCoords( ScalarViewType dofCoords ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify rank of output array.
       INTREPID2_TEST_FOR_EXCEPTION( dofCoords.rank() != 2, std::invalid_argument,
@@ -223,7 +223,7 @@ namespace Intrepid2 {
     
   virtual
   void
-  getDofCoeffs( ScalarViewType dofCoeffs ) const override {
+  getDofCoeffs( ScalarViewType dofCoeffs ) const {
 #ifdef HAVE_INTREPID2_DEBUG
     // Verify rank of output array.
     INTREPID2_TEST_FOR_EXCEPTION( dofCoeffs.rank() != 2, std::invalid_argument,
@@ -240,13 +240,13 @@ namespace Intrepid2 {
 
     virtual
     const char*
-    getName() const override {
+    getName() const {
       return "Intrepid2_HCURL_QUAD_In_FEM";
     }
 
     virtual
     bool
-    requireOrientation() const override {
+    requireOrientation() const {
       return true;
     }
     
@@ -259,26 +259,20 @@ namespace Intrepid2 {
         \param [in] subCellOrd - position of the subCell among of the subCells having the same dimension
         \return pointer to the subCell basis of dimension subCellDim and position subCellOrd
      */
-    BasisPtr<DeviceType,outputValueType,pointValueType>
+    BasisPtr<ExecSpaceType,outputValueType,pointValueType>
     getSubCellRefBasis(const ordinal_type subCellDim, const ordinal_type subCellOrd) const override{
       if(subCellDim == 1)
         return Teuchos::rcp( new
-            Basis_HGRAD_LINE_Cn_FEM<DeviceType,outputValueType,pointValueType>
+            Basis_HGRAD_LINE_Cn_FEM<ExecSpaceType,outputValueType,pointValueType>
             ( this->basisDegree_ - 1, POINTTYPE_GAUSS ) );
 
       INTREPID2_TEST_FOR_EXCEPTION(true,std::invalid_argument,"Input parameters out of bounds");
     }
 
-    BasisPtr<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>
-    getHostBasis() const override{
-      return Teuchos::rcp(new Basis_HCURL_QUAD_In_FEM<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>(this->basisDegree_, pointType_));
-    }
-
   private:
 
     /** \brief inverse of Generalized Vandermonde matrix (isotropic order) */
-    Kokkos::DynRankView<typename ScalarViewType::value_type,DeviceType> vinvLine_, vinvBubble_;
-    EPointType pointType_;
+    Kokkos::DynRankView<typename ScalarViewType::value_type,ExecSpaceType> vinvLine_, vinvBubble_;
   };
   
 }// namespace Intrepid2

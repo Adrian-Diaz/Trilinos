@@ -1,38 +1,28 @@
-KOKKOS_DEVICES=Cuda
-KOKKOS_CUDA_OPTIONS=enable_lambda
-KOKKOS_ARCH = "SNB,Volta70"
+#Set your Kokkos path to something appropriate
+KOKKOS_PATH = ${HOME}/git/kokkos-github-repo
+KOKKOS_DEVICES = "Cuda"
+KOKKOS_ARCH = "Pascal60"
+KOKKOS_CUDA_OPTIONS = enable_lambda
+#KOKKOS_DEVICES = "OpenMP"
+#KOKKOS_ARCH = "Power8"
 
-
-MAKEFILE_PATH := $(subst Makefile,,$(abspath $(lastword $(MAKEFILE_LIST))))
-
-ifndef KOKKOS_PATH
-  KOKKOS_PATH = $(MAKEFILE_PATH)../..
-endif
-
-SRC = $(wildcard $(MAKEFILE_PATH)*.cpp)
-HEADERS = $(wildcard $(MAKEFILE_PATH)*.hpp)
-
-vpath %.cpp $(sort $(dir $(SRC)))
+SRC = gups-kokkos.cc
 
 default: build
 	echo "Start Build"
+	
+CXXFLAGS = -O3
+CXX = ${HOME}/git/kokkos-github-repo/bin/nvcc_wrapper
+#CXX = g++
 
-ifneq (,$(findstring Cuda,$(KOKKOS_DEVICES)))
-CXX = ${KOKKOS_PATH}/bin/nvcc_wrapper
-EXE = gups.cuda
-else
-CXX = g++
-EXE = gups.exe
-endif
+LINK = ${CXX}
 
-CXXFLAGS ?= -O3 -g
-override CXXFLAGS += -I$(MAKEFILE_PATH)
+LINKFLAGS =  
+EXE = gups-kokkos
 
 DEPFLAGS = -M
-LINK = ${CXX}
-LINKFLAGS =
 
-OBJ = $(notdir $(SRC:.cpp=.o))
+OBJ = $(SRC:.cc=.o)
 LIB =
 
 include $(KOKKOS_PATH)/Makefile.kokkos
@@ -42,10 +32,10 @@ build: $(EXE)
 $(EXE): $(OBJ) $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(KOKKOS_LDFLAGS) $(LINKFLAGS) $(EXTRA_PATH) $(OBJ) $(KOKKOS_LIBS) $(LIB) -o $(EXE)
 
-clean: kokkos-clean
-	rm -f *.o gups.cuda gups.exe
+clean: kokkos-clean 
+	rm -f *.o $(EXE)
 
 # Compilation rules
 
-%.o:%.cpp $(KOKKOS_CPP_DEPENDS) $(HEADERS)
-	$(CXX) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(EXTRA_INC) -c $< -o $(notdir $@)
+%.o:%.cc $(KOKKOS_CPP_DEPENDS)
+	$(CXX) $(KOKKOS_CPPFLAGS) $(KOKKOS_CXXFLAGS) $(CXXFLAGS) $(EXTRA_INC) -c $<

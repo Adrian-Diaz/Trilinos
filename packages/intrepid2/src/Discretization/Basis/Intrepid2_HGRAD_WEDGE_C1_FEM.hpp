@@ -105,7 +105,7 @@ namespace Intrepid2 {
 
       };
 
-      template<typename DeviceType,
+      template<typename ExecSpaceType,
                typename outputValueValueType, class ...outputValueProperties,
                typename inputPointValueType,  class ...inputPointProperties>
       static void
@@ -159,30 +159,30 @@ namespace Intrepid2 {
 
     };
   }
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename outputValueType = double,
            typename pointValueType = double>
-  class Basis_HGRAD_WEDGE_C1_FEM : public Basis<DeviceType,outputValueType,pointValueType> {
+  class Basis_HGRAD_WEDGE_C1_FEM : public Basis<ExecSpaceType,outputValueType,pointValueType> {
   public:
-    using OrdinalTypeArray1DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
-    using OrdinalTypeArray2DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
-    using OrdinalTypeArray3DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
+    using OrdinalTypeArray1DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
+    using OrdinalTypeArray2DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
+    using OrdinalTypeArray3DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
 
     /** \brief  Constructor.
      */
     Basis_HGRAD_WEDGE_C1_FEM();
 
-    using OutputViewType = typename Basis<DeviceType,outputValueType,pointValueType>::OutputViewType;
-    using PointViewType  = typename Basis<DeviceType,outputValueType,pointValueType>::PointViewType;
-    using ScalarViewType = typename Basis<DeviceType,outputValueType,pointValueType>::ScalarViewType;
+    using OutputViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OutputViewType;
+    using PointViewType  = typename Basis<ExecSpaceType,outputValueType,pointValueType>::PointViewType;
+    using ScalarViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::ScalarViewType;
 
-    using Basis<DeviceType,outputValueType,pointValueType>::getValues;
+    using Basis<ExecSpaceType,outputValueType,pointValueType>::getValues;
 
     virtual
     void
     getValues(       OutputViewType outputValues,
                const PointViewType  inputPoints,
-               const EOperator operatorType = OPERATOR_VALUE ) const override {
+               const EOperator operatorType = OPERATOR_VALUE ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify arguments
       Intrepid2::getValues_HGRAD_Args(outputValues,
@@ -192,14 +192,14 @@ namespace Intrepid2 {
                                       this->getCardinality() );
 #endif
       Impl::Basis_HGRAD_WEDGE_C1_FEM::
-        getValues<DeviceType>( outputValues,
+        getValues<ExecSpaceType>( outputValues,
                                   inputPoints,
                                   operatorType );
     }
 
     virtual
     void
-    getDofCoords( ScalarViewType dofCoords ) const override {
+    getDofCoords( ScalarViewType dofCoords ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify rank of output array.
       INTREPID2_TEST_FOR_EXCEPTION( dofCoords.rank() != 2, std::invalid_argument,
@@ -216,7 +216,7 @@ namespace Intrepid2 {
 
     virtual
     void
-    getDofCoeffs( ScalarViewType dofCoeffs ) const override {
+    getDofCoeffs( ScalarViewType dofCoeffs ) const {
 #ifdef HAVE_INTREPID2_DEBUG
       // Verify rank of output array.
       INTREPID2_TEST_FOR_EXCEPTION( dofCoeffs.rank() != 1, std::invalid_argument,
@@ -230,7 +230,7 @@ namespace Intrepid2 {
 
     virtual
     const char*
-    getName() const override {
+    getName() const {
       return "Intrepid2_HGRAD_WEDGE_C1_FEM";
     }
 

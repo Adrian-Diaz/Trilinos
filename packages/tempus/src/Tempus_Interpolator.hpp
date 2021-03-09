@@ -17,7 +17,6 @@
 #include "Teuchos_ScalarTraits.hpp"
 
 // Tempus
-#include "Tempus_config.hpp"
 #include "Tempus_SolutionState.hpp"
 
 #include <vector>
@@ -66,7 +65,7 @@ public:
 
 };
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 void interpolate(const Interpolator<Scalar>& interpolator,
                  const Scalar& t,
@@ -75,7 +74,7 @@ void interpolate(const Interpolator<Scalar>& interpolator,
   interpolator.interpolate(t, state_out);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 void interpolate(Interpolator<Scalar>& interpolator,
                  const Teuchos::RCP<const std::vector<Teuchos::RCP<SolutionState<Scalar> > > >&  nodes,

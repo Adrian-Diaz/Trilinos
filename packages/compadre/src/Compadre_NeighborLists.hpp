@@ -153,23 +153,19 @@ public:
     void setNeighborDevice(int target_index, int neighbor_num, int new_value) {
         _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num) = new_value;
         // indicate that host view is now out of sync with device
-        // but only in debug mode (notice the next line is both setting the variable and checking it was set)
-        compadre_assert_debug((_needs_sync_to_host=true)==true); 
+        _needs_sync_to_host |= true;
     }
 
     //! Calculate the maximum number of neighbors of all targets' neighborhoods (host)
     void computeMaxNumNeighbors() {
-        if (_number_of_neighbors_list.extent(0)==0) {
-            _max_neighbor_list_row_storage_size = 0;
-        } else {
-            auto number_of_neighbors_list = _number_of_neighbors_list;
-            Kokkos::parallel_reduce("max number of neighbors", 
-                    Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
-                    KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-                t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
-            }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
-            Kokkos::fence();
-        }
+        _max_neighbor_list_row_storage_size = 0;
+        auto number_of_neighbors_list = _number_of_neighbors_list;
+        Kokkos::parallel_reduce("max number of neighbors", 
+                Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
+                KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
+            t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
+        }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
+        Kokkos::fence();
     }
 
     //! Calculate the row offsets for each target's neighborhood (host)
@@ -232,10 +228,10 @@ public:
 
     //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i (host)
     int getNeighborHost(int target_index, int neighbor_num) const {
-        compadre_assert_debug((!_needs_sync_to_host) 
-                && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
-        compadre_assert_debug((neighbor_num<_number_of_neighbors_list(target_index))
-                && "neighor_num exceeds number of neighbors for this target_index.");
+        if (_needs_sync_to_host) {
+            compadre_assert_debug((!_needs_sync_to_host) 
+                    && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
+        }
         return _host_cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
     }
 
@@ -254,11 +250,7 @@ public:
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (host)
     global_index_type getTotalNeighborsOverAllListsHost() const {
-        if (this->getNumberOfTargets()==0) {
-            return 0;
-        } else {
-            return TO_GLOBAL(this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1)) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
-        }
+        return TO_GLOBAL(this->getNumberOfNeighborsHost(this->getNumberOfTargets()-1)) + this->getRowOffsetHost(this->getNumberOfTargets()-1);
     }
 
     //! Get the sum of the number of neighbors of all targets' neighborhoods (device)
@@ -269,12 +261,6 @@ public:
 ///@}
 
 }; // NeighborLists
-
-//! CreateNeighborLists allows for the construction of an object of type NeighborLists with template deduction
-template <typename view_type>
-NeighborLists<view_type> CreateNeighborLists(view_type number_of_neighbors_list) {
-    return NeighborLists<view_type>(number_of_neighbors_list);
-}
 
 //! CreateNeighborLists allows for the construction of an object of type NeighborLists with template deduction
 template <typename view_type>
@@ -294,11 +280,11 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
 
     // gets total number of neighbors over all lists
     // computes calculation where the data resides (device/host)
-    global_index_type total_storage_size = 0;
+    int total_storage_size = 0;
     Kokkos::parallel_reduce("total number of neighbors over all lists", Kokkos::RangePolicy<typename view_type_2d::execution_space>(0, neighbor_lists.extent(0)), 
-            KOKKOS_LAMBDA(const int i, global_index_type& t_total_num_neighbors) {
+            KOKKOS_LAMBDA(const int i, int& t_total_num_neighbors) {
         t_total_num_neighbors += neighbor_lists(i,0);
-    }, Kokkos::Sum<global_index_type>(total_storage_size));
+    }, Kokkos::Sum<int>(total_storage_size));
     Kokkos::fence();
 
     // view_type_1d may be on host or device, and view_type_2d may be either as well (could even be opposite)
@@ -330,7 +316,6 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
                 cr_data(nla.getRowOffsetDevice(i)+j) = d_neighbor_lists(i,j+1);
             }
         });
-        Kokkos::fence();
         nla.copyDeviceDataToHost(); // has a fence at the end
     }
     // otherwise we are writing to a view that can't be seen from device (must be host space), 

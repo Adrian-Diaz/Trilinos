@@ -35,10 +35,11 @@
 #ifndef stk_util_CommNeighbors_hpp
 #define stk_util_CommNeighbors_hpp
 
-#include "stk_util/parallel/CommBufferV.hpp"  // for CommBufferV
-#include "stk_util/parallel/Parallel.hpp"     // for ParallelMachine, OMPI_MAJOR_VERSION, ompi_c...
-#include "stk_util/stk_config.h"              // for STK_HAS_MPI
-#include <vector>                             // for vector
+#include <cstddef>                      // for size_t, ptrdiff_t
+#include <vector>
+#include <stk_util/stk_config.h>
+#include <stk_util/parallel/Parallel.hpp>  // for ParallelMachine
+#include <stk_util/parallel/CommBufferV.hpp>
 
 //------------------------------------------------------------------------
 //

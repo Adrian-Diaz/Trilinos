@@ -195,7 +195,8 @@ struct ObjectWithVLAEmulation {
   }
 
   KOKKOS_INLINE_FUNCTION
-  ~ObjectWithVLAEmulation() {
+  ~ObjectWithVLAEmulation() noexcept(
+      noexcept(std::declval<vla_value_type>().~vla_value_type())) {
     for (auto&& value : *this) {
       value.~vla_value_type();
     }

@@ -9,13 +9,14 @@
 #ifndef Tempus_IntegratorAdjointSensitivity_impl_hpp
 #define Tempus_IntegratorAdjointSensitivity_impl_hpp
 
+#include "Teuchos_VerboseObjectParameterListHelpers.hpp"
 #include "Thyra_DefaultMultiVectorProductVectorSpace.hpp"
 #include "Thyra_DefaultMultiVectorProductVector.hpp"
 #include "Thyra_DefaultProductVectorSpace.hpp"
 #include "Thyra_DefaultProductVector.hpp"
 #include "Thyra_VectorStdOps.hpp"
 #include "Thyra_MultiVectorStdOps.hpp"
-
+#include "NOX_Thyra.H"
 
 namespace Tempus {
 
@@ -545,7 +546,7 @@ buildSolutionHistory(
   }
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorAdjointSensitivity<Scalar> >
 integratorAdjointSensitivity(
@@ -557,7 +558,7 @@ integratorAdjointSensitivity(
   return(integrator);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorAdjointSensitivity<Scalar> >
 integratorAdjointSensitivity()

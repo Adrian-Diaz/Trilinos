@@ -128,7 +128,7 @@ public:
     }
   };
 
-  template<typename DeviceType, ordinal_type numPtsPerEval,
+  template<typename ExecSpaceType, ordinal_type numPtsPerEval,
   typename outputValueValueType, class ...outputValueProperties,
   typename inputPointValueType,  class ...inputPointProperties,
   typename vinvValueType,        class ...vinvProperties>
@@ -197,34 +197,34 @@ public:
 };
 }
 
-template<typename DeviceType = void,
+template<typename ExecSpaceType = void,
     typename outputValueType = double,
     typename pointValueType = double>
 class Basis_HDIV_TRI_In_FEM
-    : public Basis<DeviceType,outputValueType,pointValueType> {
+    : public Basis<ExecSpaceType,outputValueType,pointValueType> {
     public:
-  typedef typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost OrdinalTypeArray1DHost;
-  typedef typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost OrdinalTypeArray2DHost;
-  typedef typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost OrdinalTypeArray3DHost;
+  typedef typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost OrdinalTypeArray1DHost;
+  typedef typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost OrdinalTypeArray2DHost;
+  typedef typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost OrdinalTypeArray3DHost;
 
   /** \brief  Constructor.
    */
   Basis_HDIV_TRI_In_FEM(const ordinal_type order,
       const EPointType   pointType = POINTTYPE_EQUISPACED);
 
-  using OutputViewType = typename Basis<DeviceType,outputValueType,pointValueType>::OutputViewType;
-  using PointViewType  = typename Basis<DeviceType,outputValueType,pointValueType>::PointViewType;
-  using ScalarViewType = typename Basis<DeviceType,outputValueType,pointValueType>::ScalarViewType;
+  using OutputViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OutputViewType;
+  using PointViewType  = typename Basis<ExecSpaceType,outputValueType,pointValueType>::PointViewType;
+  using ScalarViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::ScalarViewType;
 
-  typedef typename Basis<DeviceType,outputValueType,pointValueType>::scalarType  scalarType;
+  typedef typename Basis<ExecSpaceType,outputValueType,pointValueType>::scalarType  scalarType;
 
-  using Basis<DeviceType,outputValueType,pointValueType>::getValues;
+  using Basis<ExecSpaceType,outputValueType,pointValueType>::getValues;
 
   virtual
   void
   getValues( /* */ OutputViewType outputValues,
       const PointViewType  inputPoints,
-      const EOperator operatorType = OPERATOR_VALUE) const override {
+      const EOperator operatorType = OPERATOR_VALUE) const {
 #ifdef HAVE_INTREPID2_DEBUG
     Intrepid2::getValues_HDIV_Args(outputValues,
         inputPoints,
@@ -234,7 +234,7 @@ class Basis_HDIV_TRI_In_FEM
 #endif
     constexpr ordinal_type numPtsPerEval = Parameters::MaxNumPtsPerBasisEval;
     Impl::Basis_HDIV_TRI_In_FEM::
-    getValues<DeviceType,numPtsPerEval>( outputValues,
+    getValues<ExecSpaceType,numPtsPerEval>( outputValues,
         inputPoints,
         this->coeffs_,
         operatorType);
@@ -242,7 +242,7 @@ class Basis_HDIV_TRI_In_FEM
 
   virtual
   void
-  getDofCoords( ScalarViewType dofCoords ) const override {
+  getDofCoords( ScalarViewType dofCoords ) const {
 #ifdef HAVE_INTREPID2_DEBUG
     // Verify rank of output array.
     INTREPID2_TEST_FOR_EXCEPTION( dofCoords.rank() != 2, std::invalid_argument,
@@ -259,7 +259,7 @@ class Basis_HDIV_TRI_In_FEM
 
   virtual
   void
-  getDofCoeffs( ScalarViewType dofCoeffs ) const override {
+  getDofCoeffs( ScalarViewType dofCoeffs ) const {
 #ifdef HAVE_INTREPID2_DEBUG
     // Verify rank of output array.
     INTREPID2_TEST_FOR_EXCEPTION( dofCoeffs.rank() != 2, std::invalid_argument,
@@ -282,13 +282,13 @@ class Basis_HDIV_TRI_In_FEM
 
   virtual
   const char*
-  getName() const override {
+  getName() const {
     return "Intrepid2_HDIV_TRI_In_FEM";
   }
 
   virtual
   bool
-  requireOrientation() const override {
+  requireOrientation() const {
     return true;
   }
 
@@ -301,25 +301,21 @@ class Basis_HDIV_TRI_In_FEM
       \param [in] subCellOrd - position of the subCell among of the subCells having the same dimension
       \return pointer to the subCell basis of dimension subCellDim and position subCellOrd
    */
-  BasisPtr<DeviceType,outputValueType,pointValueType>
+  BasisPtr<ExecSpaceType,outputValueType,pointValueType>
     getSubCellRefBasis(const ordinal_type subCellDim, const ordinal_type subCellOrd) const override{
     if(subCellDim == 1) {
       return Teuchos::rcp(new
-                  Basis_HVOL_LINE_Cn_FEM<DeviceType,outputValueType,pointValueType>
+                  Basis_HVOL_LINE_Cn_FEM<ExecSpaceType,outputValueType,pointValueType>
                   (this->basisDegree_-1, pointType_));
     }
     INTREPID2_TEST_FOR_EXCEPTION(true,std::invalid_argument,"Input parameters out of bounds");
   }
 
-  BasisPtr<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>
-  getHostBasis() const override{
-    return Teuchos::rcp(new Basis_HDIV_TRI_In_FEM<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>(this->basisDegree_, pointType_));
-  }
     private:
 
   /** \brief expansion coefficients of the nodal basis in terms of the
         orthgonal one */
-  Kokkos::DynRankView<scalarType,DeviceType> coeffs_;
+  Kokkos::DynRankView<scalarType,ExecSpaceType> coeffs_;
 
   /** \brief type of lattice used for creating the DoF coordinates  */
   EPointType pointType_;

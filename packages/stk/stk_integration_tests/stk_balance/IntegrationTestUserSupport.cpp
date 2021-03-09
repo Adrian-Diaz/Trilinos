@@ -196,8 +196,7 @@ TEST(Stkbalance, modifyMeshIfNeeded)
     EXPECT_NO_THROW(stk::io::fill_mesh(filename, bulk));
 
     stk::mesh::EntityVector elements;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulk, stk::topology::ELEM_RANK, meta.locally_owned_part(), elements, sortById);
+    stk::mesh::get_selected_entities(meta.locally_owned_part(), bulk.buckets(stk::topology::ELEM_RANK), elements);
 
     std::vector<std::set<stk::mesh::Entity>> components;
 
@@ -289,8 +288,7 @@ TEST(Stkbalance, checkForDegenerateElements)
     EXPECT_NO_THROW(stk::io::fill_mesh_with_auto_decomp(filename, bulk));
 
     stk::mesh::EntityVector elements;
-    const bool sortById = true;
-    stk::mesh::get_entities(bulk, stk::topology::ELEM_RANK, meta.locally_owned_part(), elements, sortById);
+    stk::mesh::get_selected_entities(meta.locally_owned_part(), bulk.buckets(stk::topology::ELEM_RANK), elements);
 
     std::ostringstream os;
     std::vector<stk::mesh::PartOrdinal> ords;

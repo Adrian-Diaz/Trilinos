@@ -32,10 +32,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/environment/RuntimeWarning.hpp"
-#include "stk_util/environment/RuntimeMessage.hpp"  // for MSG_WARNING, report_message, MessageCode
-#include <exception>                                // for exception
-#include <string>                                   // for basic_string
+#include <stk_util/environment/RuntimeWarning.hpp>
+#include <exception>                    // for exception
+#include "stk_util/environment/RuntimeMessage.hpp"
 
 namespace stk {
 

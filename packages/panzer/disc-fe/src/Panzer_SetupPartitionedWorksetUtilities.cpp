@@ -52,26 +52,21 @@ namespace panzer
 
 namespace
 {
-void
-convertMeshPartitionToWorkset(const panzer::LocalMeshPartition & partition,
-                              const Teuchos::RCP<const OrientationsInterface> & orientations,
-                              panzer::Workset & workset)
-{
-  WorksetOptions options;
-  options.side_assembly_ = false;
-  options.align_side_points_ = false;
-  options.orientations_ = orientations;
-
-  // Construct the workset from the partition
-  workset.setup(partition, options);
-
-}
+  void
+  convertMeshPartitionToWorkset(const panzer::LocalMeshPartition & partition,
+                                const panzer::WorksetNeeds & needs,
+                                panzer::Workset & workset)
+  {
+    workset.setup(partition, needs);
+    workset.num_cells = partition.num_owned_cells + partition.num_ghstd_cells + partition.num_virtual_cells;
+    workset.subcell_dim = -1;
+  } 
 }
 
 Teuchos::RCP<std::vector<panzer::Workset> >  
 buildPartitionedWorksets(const panzer::LocalMeshInfo & mesh_info,
                          const panzer::WorksetDescriptor & description,
-                         const Teuchos::RCP<const OrientationsInterface> & orientations)
+                         const panzer::WorksetNeeds & needs)
 {
   Teuchos::RCP<std::vector<panzer::Workset> > worksets = Teuchos::rcp(new std::vector<panzer::Workset>());
 
@@ -84,7 +79,7 @@ buildPartitionedWorksets(const panzer::LocalMeshInfo & mesh_info,
 
   for(const auto & partition : partitions){
     worksets->push_back(panzer::Workset());
-    convertMeshPartitionToWorkset(partition, orientations, worksets->back());
+    convertMeshPartitionToWorkset(partition, needs, worksets->back());
   }
 
   return worksets;

@@ -36,9 +36,16 @@
 #ifndef stk_util_parallel_GenerateParallelUniqueIDs_hpp
 #define stk_util_parallel_GenerateParallelUniqueIDs_hpp
 
-#include "stk_util/parallel/Parallel.hpp"  // for ParallelMachine
-#include <cstdint>                         // for uint64_t
-#include <vector>                          // for vector
+#include "stk_util/parallel/ParallelVectorConcat.hpp" 
+#include "stk_util/parallel/Parallel.hpp" 
+#include "stk_util/parallel/ParallelIndexGapFinder.hpp"
+#include <vector> 
+#include <algorithm> 
+#include <stdexcept>     
+#include <string>                       // for string
+#include <sstream>   
+#include "mpi.h"  
+#include <assert.h>
 
 namespace stk {
 

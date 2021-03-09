@@ -38,6 +38,7 @@
 #include <stk_util/parallel/Parallel.hpp>  // for ParallelMachine
 #include "mpi.h"                        // for MPI_COMM_SELF, etc
 #include "stk_mesh/base/Bucket.hpp"     // for Bucket
+#include "stk_mesh/base/BulkDataInlinedMethods.hpp"
 #include "stk_mesh/base/Entity.hpp"     // for Entity
 #include "stk_mesh/base/Types.hpp"      // for PartVector, EntityId, etc
 #include "stk_topology/topology.hpp"    // for topology, etc

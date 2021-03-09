@@ -35,17 +35,18 @@
 #ifndef STK_UTIL_DIAG_UserPlugin_h
 #define STK_UTIL_DIAG_UserPlugin_h
 
-#include "stk_util/diag/StringUtil.hpp"  // for less_nocase
-#include "stk_util/util/Fortran.hpp"     // for SIERRA_FORTRAN
-#include <functional>                    // for binary_function
-#include <iosfwd>                        // for ostream
-#include <map>                           // for map, map<>::value_compare
-#include <string>                        // for string
-#include <typeinfo>                      // for type_info
-#include <utility>                       // for make_pair, pair
-#include <vector>                        // for vector
-
+#include <stddef.h>                     // for 
+#include <functional>                   // for binary_function
+#include <iosfwd>                       // for ostream
+#include <map>                          // for map, map<>::value_compare
+#include <stk_util/diag/StringUtil.hpp> // for less_nocase
+#include <stk_util/util/Fortran.hpp>    // for SIERRA_FORTRAN
+#include <string>                       // for string
+#include <typeinfo>                     // for type_info
+#include <utility>                      // for make_pair, pair
+#include <vector>                       // for vector
 namespace stk { namespace diag { class Writer; } }
+
 
 /**
  * Historically, the term User Subroutine has referred to Fortran subroutines which are

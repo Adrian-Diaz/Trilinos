@@ -9,9 +9,6 @@
 #ifndef Tempus_Types_hpp
 #define Tempus_Types_hpp
 
-#include "Tempus_config.hpp"
-
-
 namespace Tempus {
 
 

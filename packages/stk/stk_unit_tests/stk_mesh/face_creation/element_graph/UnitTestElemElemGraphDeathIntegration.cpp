@@ -68,6 +68,7 @@ public:
         stk::mesh::PartVector newlyCreatedBoundaryFacesGetAddedToTheseParts = {&boundaryPart};
         stk::mesh::PartVector exposedButExistingBoundaryFacesGetAddedToTheseParts = {&boundaryPart};
         process_killed_elements(bulk,
+                                bulk.get_face_adjacent_element_graph(),
                                 elementsToKill,
                                 activePart,
                                 remoteActiveSelector,

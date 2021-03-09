@@ -9,9 +9,11 @@
 #ifndef Tempus_IntegratorBasic_impl_hpp
 #define Tempus_IntegratorBasic_impl_hpp
 
-#include "Thyra_VectorStdOps.hpp"
-
+#include "Teuchos_VerboseObjectParameterListHelpers.hpp"
+#include "Teuchos_TimeMonitor.hpp"
 #include "Tempus_StepperFactory.hpp"
+#include "Tempus_TimeStepControl.hpp"
+#include <ctime>
 
 
 namespace Tempus {
@@ -95,12 +97,16 @@ void IntegratorBasic<Scalar>::setStepper(
   using Teuchos::RCP;
   using Teuchos::ParameterList;
 
-  // Construct from Integrator ParameterList
-  RCP<StepperFactory<Scalar> > sf =Teuchos::rcp(new StepperFactory<Scalar>());
-  std::string stepperName = integratorPL_->get<std::string>("Stepper Name");
+  if (stepper_ == Teuchos::null) {
+    // Construct from Integrator ParameterList
+    RCP<StepperFactory<Scalar> > sf =Teuchos::rcp(new StepperFactory<Scalar>());
+    std::string stepperName = integratorPL_->get<std::string>("Stepper Name");
 
-  RCP<ParameterList> stepperPL = Teuchos::sublist(tempusPL_,stepperName,true);
-  stepper_ = sf->createStepper(stepperPL, models);
+    RCP<ParameterList> stepperPL = Teuchos::sublist(tempusPL_,stepperName,true);
+    stepper_ = sf->createStepper(stepperPL, models);
+  } else {
+    stepper_->createSubSteppers(models);
+  }
 }
 
 
@@ -252,6 +258,7 @@ void IntegratorBasic<Scalar>::setTimeStepControl(
     // Make integratorPL_ consistent with new TimeStepControl.
     timeStepControl_ = tsc;
     RCP<const ParameterList> tscPL = timeStepControl_->getValidParameters();
+    integratorPL_->set("Time Step Control", tscPL->name());
     integratorPL_->set(tscPL->name(), *tscPL);
   }
 
@@ -403,7 +410,7 @@ bool IntegratorBasic<Scalar>::advanceTime()
       startTimeStep();
       integratorObserver_->observeStartTimeStep(*this);
 
-      timeStepControl_->setNextTimeStep(solutionHistory_, integratorStatus_);
+      timeStepControl_->getNextTimeStep(solutionHistory_, integratorStatus_);
       integratorObserver_->observeNextTimeStep(*this);
 
       if (integratorStatus_ == Status::FAILED) break;
@@ -662,7 +669,7 @@ IntegratorBasic<Scalar>::unsetParameterList()
   return(temp_param_list);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic(
   Teuchos::RCP<Teuchos::ParameterList>                     pList,
@@ -673,7 +680,7 @@ Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic(
   return(integrator);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic(
   const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >&      model,
@@ -684,7 +691,7 @@ Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic(
   return(integrator);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic()
 {
@@ -693,7 +700,7 @@ Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic()
   return(integrator);
 }
 
-/// Nonmember constructor
+/// Non-member constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorBasic<Scalar> > integratorBasic(
   Teuchos::RCP<Teuchos::ParameterList>                     pList,

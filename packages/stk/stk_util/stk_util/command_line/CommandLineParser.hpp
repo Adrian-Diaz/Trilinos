@@ -34,11 +34,10 @@
 #ifndef STK_UTIL_COMMAND_LINE_COMMANDLINEPARSER_HPP
 #define STK_UTIL_COMMAND_LINE_COMMANDLINEPARSER_HPP
 
-#include "stk_util/environment/OptionsSpecification.hpp"  // for OptionsSpecification, operator<<
-#include "stk_util/environment/ParsedOptions.hpp"         // for ParsedOptions
-#include "stk_util/util/ReportHandler.hpp"                // for ThrowRequireMsg
-#include <iostream>                                       // for endl, operator<<, ostream, ostr...
-#include <string>                                         // for string, allocator, operator+
+#include <stk_util/environment/OptionsSpecification.hpp>
+#include <stk_util/environment/ParsedOptions.hpp>
+#include <iostream>
+#include <string>
 
 namespace stk {
 

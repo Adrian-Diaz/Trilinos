@@ -44,7 +44,6 @@
 #include <string>
 
 #include "MockModelEval_A_Tpetra.hpp"
-#include "MockModelEval_B_Tpetra.hpp"
 //#include "ObserveSolution_Epetra.hpp"
 
 #include "Piro_SolverFactory.hpp"
@@ -123,77 +122,61 @@ int main(int argc, char *argv[]) {
 
     try {
 
-      std::vector<std::string> mockModels = {"MockModelEval_A_Tpetra", "MockModelEval_B_Tpetra"};
-      for (auto mockModel : mockModels) {
+      // Create (1) a Model Evaluator and (2) a ParameterList
+      const RCP<Thyra::ModelEvaluator<double>> Model = rcp(new MockModelEval_A_Tpetra(appComm));
 
-        // Create (1) a Model Evaluator and (2) a ParameterList
-        RCP<Thyra::ModelEvaluator<double>> Model;
-        if (mockModel=="MockModelEval_A_Tpetra")
-          Model = rcp(new MockModelEval_A_Tpetra(appComm));
-        if (mockModel=="MockModelEval_B_Tpetra")
-          Model = rcp(new MockModelEval_B_Tpetra(appComm));
+      // BEGIN Builder
+      const RCP<Teuchos::ParameterList> appParams = rcp(new Teuchos::ParameterList("Application Parameters"));
+      Teuchos::updateParametersFromXmlFile(inputFile, Teuchos::ptr(appParams.get()));
 
-        // BEGIN Builder
-        const RCP<Teuchos::ParameterList> appParams = rcp(new Teuchos::ParameterList("Application Parameters"));
-        Teuchos::updateParametersFromXmlFile(inputFile, Teuchos::ptr(appParams.get()));
-
-        const RCP<Teuchos::ParameterList>  piroParams = Teuchos::sublist(appParams,"Piro");
-        Teuchos::ParameterList& analysisParams = piroParams->sublist("Analysis");
+      const RCP<Teuchos::ParameterList>  piroParams = Teuchos::sublist(appParams,"Piro");
+      Teuchos::ParameterList& analysisParams = piroParams->sublist("Analysis");
 
 
-        Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
+      Stratimikos::DefaultLinearSolverBuilder linearSolverBuilder;
 
-  #ifdef HAVE_PIRO_IFPACK2
-        typedef Thyra::PreconditionerFactoryBase<double>              Base;
-        typedef Thyra::Ifpack2PreconditionerFactory<Tpetra_CrsMatrix> Impl;
-        linearSolverBuilder.setPreconditioningStrategyFactory(
-            Teuchos::abstractFactoryStd<Base, Impl>(), "Ifpack2");
-  #endif
+#ifdef HAVE_PIRO_IFPACK2
+      typedef Thyra::PreconditionerFactoryBase<double>              Base;
+      typedef Thyra::Ifpack2PreconditionerFactory<Tpetra_CrsMatrix> Impl;
+      linearSolverBuilder.setPreconditioningStrategyFactory(
+          Teuchos::abstractFactoryStd<Base, Impl>(), "Ifpack2");
+#endif
 
-  #ifdef HAVE_PIRO_MUELU
-        using local_ordinal_type = Tpetra::Map<>::local_ordinal_type;
-        using global_ordinal_type = Tpetra::Map<>::global_ordinal_type;
-        Stratimikos::enableMueLu<local_ordinal_type, global_ordinal_type>(linearSolverBuilder);
-  #endif
+#ifdef HAVE_PIRO_MUELU
+      using local_ordinal_type = Tpetra::Map<>::local_ordinal_type;
+      using global_ordinal_type = Tpetra::Map<>::global_ordinal_type;
+      Stratimikos::enableMueLu<local_ordinal_type, global_ordinal_type>(linearSolverBuilder);
+#endif
 
-        const Teuchos::RCP<Teuchos::ParameterList> stratList = Piro::extractStratimikosParams(piroParams);
-        linearSolverBuilder.setParameterList(stratList);
+      const Teuchos::RCP<Teuchos::ParameterList> stratList = Piro::extractStratimikosParams(piroParams);
+      linearSolverBuilder.setParameterList(stratList);
 
 
-        const RCP<Thyra::LinearOpWithSolveFactoryBase<double>> lowsFactory =
-            createLinearSolveStrategy(linearSolverBuilder);
+      const RCP<Thyra::LinearOpWithSolveFactoryBase<double>> lowsFactory =
+          createLinearSolveStrategy(linearSolverBuilder);
 
-        RCP<Thyra::ModelEvaluator<double>> ModelWithSolve = rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(
-            Model, lowsFactory));
+      RCP<Thyra::ModelEvaluator<double>> ModelWithSolve = rcp(new Thyra::DefaultModelEvaluatorWithSolveFactory<double>(
+          Model, lowsFactory));
 
-        const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverFactory.createSolver(piroParams, ModelWithSolve);
+      const RCP<Thyra::ModelEvaluatorDefaultBase<double>> piro = solverFactory.createSolver(piroParams, ModelWithSolve);
 
-        // Call the analysis routine
-        RCP<Thyra::VectorBase<double>> p;
-        status = Piro::PerformAnalysis(*piro, analysisParams, p);
+      // Call the analysis routine
+      RCP<Thyra::VectorBase<double>> p;
+      status = Piro::PerformAnalysis(*piro, analysisParams, p);
 
-        if (Teuchos::nonnull(p)) { //p might be null if the package ROL is not enabled
-          Thyra::DetachedVectorView<double> p_view(p);
-          double p_exact[2];
-          if (mockModel=="MockModelEval_A_Tpetra") {
-            p_exact[0] = 1;
-            p_exact[1] = 3;
-          }
-          if (mockModel=="MockModelEval_B_Tpetra") {
-            p_exact[0] = 6;
-            p_exact[1] = 4;
-          }
-          double tol = 1e-5;
+      if (Teuchos::nonnull(p)) { //p might be null if the package ROL is not enabled
+        Thyra::DetachedVectorView<double> p_view(p);
+        double p_exact[2] = {1,3};
+        double tol = 1e-5;
 
-          double l2_diff = std::sqrt(std::pow(p_view(0)-p_exact[0],2) + std::pow(p_view(1)-p_exact[1],2));
-          if(l2_diff > tol) {
-            status+=100;
-            if (Proc==0) {
-              std::cout << "\nPiro_AnalysisDrvier:  Optimum parameter values are: {"
-                  <<  p_exact[0] << ", " << p_exact[1] << "}, but computed values are: {"
-                  <<  p_view(0) << ", " << p_view(1) << "}." <<
-                  "\n                      Difference in l2 norm: " << l2_diff << " > tol: " << tol <<   std::endl;
-            }
+        double l2_diff = std::sqrt(std::pow(p_view(0)-p_exact[0],2) + std::pow(p_view(1)-p_exact[1],2));
+        if(l2_diff > tol) {
+          status+=100;
+          if (Proc==0) {
+            std::cout << "\nPiro_AnalysisDrvier:  Optimum parameter values are: {"
+                <<  p_exact[0] << ", " << p_exact[1] << "}, but computed values are: {"
+                <<  p_view(0) << ", " << p_view(1) << "}." <<
+                "\n                      Difference in l2 norm: " << l2_diff << " > tol: " << tol <<   std::endl;
           }
         }
       }

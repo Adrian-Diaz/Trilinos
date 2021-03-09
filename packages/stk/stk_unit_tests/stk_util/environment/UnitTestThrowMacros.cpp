@@ -32,12 +32,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "gtest/gtest.h"
-#include "Kokkos_Core.hpp"
-#include "stk_util/util/ReportHandler.hpp"  // for set_assert_handler, ThrowRequireMsg, set_erro...
-#include <iostream>                         // for basic_ostream::operator<<, operator<<, ostrin...
-#include <stdexcept>                        // for logic_error, runtime_error, invalid_argument
-#include <string>                           // for string
+#include <iostream>                     // for ostringstream, etc
+#include <stdexcept>                    // for logic_error, runtime_error, etc
+#include <stk_util/util/ReportHandler.hpp>  // for ThrowRequireMsg, etc
+#include <gtest/gtest.h>
+#include <string>                       // for string
 
 
 namespace {
@@ -276,7 +275,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowRequireMsg)
   catch (std::exception & ex) {
     std::cerr<<"ex.what(): "<<ex.what()<<std::endl;
     const char * expectedMsg = "Requirement( test == true ) FAILED\n"
-                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:252\n"
+                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:251\n"
                                "Error: Error testing whatever\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }
@@ -309,7 +308,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowRequire)
   }
   catch (std::exception & ex) {
     const char * expectedMsg = "Requirement( test == true ) FAILED\n"
-                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:294\n";
+                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:293\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }
 #endif
@@ -340,7 +339,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowAssertMsg_debug)
   }
   catch (std::exception & ex) {
     const char * expectedMsg = "Requirement( test == true ) FAILED\n"
-                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:325\n"
+                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:324\n"
                                "Error: Error testing whatever\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }
@@ -395,7 +394,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowErrorMsgIf)
   }
   catch (std::exception & ex) {
     const char * expectedMsg = "Requirement( !(test == true) ) FAILED\n"
-                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:380\n"
+                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:379\n"
                                "Error: Error testing whatever\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }
@@ -425,7 +424,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowErrorIf)
   }
   catch (std::exception & ex) {
     const char * expectedMsg = "Requirement( !(test == true) ) FAILED\n"
-                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:410\n";
+                               "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:409\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }
 #endif
@@ -452,7 +451,7 @@ TEST(UnitTestingOfThrowMacros, NGP_ThrowErrorMsg)
     testNGPThrowErrorMsg();
   }
   catch (std::exception & ex) {
-    const char * expectedMsg = "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:438\n"
+    const char * expectedMsg = "Error occured at: stk_unit_tests/stk_util/environment/UnitTestThrowMacros.cpp:437\n"
                                "Error: Error testing whatever\n";
     EXPECT_STREQ(ex.what(), expectedMsg);
   }

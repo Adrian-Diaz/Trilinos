@@ -165,19 +165,19 @@ namespace Iohb {
       if (properties.exists("FILE_FORMAT")) {
         std::string format = properties.get("FILE_FORMAT").get_string();
         if (Ioss::Utils::str_equal(format, "spyhis")) {
-          new_this->fileFormat = Iohb::Format::SPYHIS;
+          new_this->fileFormat = SPYHIS;
         }
         else if (Ioss::Utils::str_equal(format, "csv")) {
-          new_this->fileFormat = Iohb::Format::CSV;
+          new_this->fileFormat = CSV;
         }
         else if (Ioss::Utils::str_equal(format, "ts_csv")) {
-          new_this->fileFormat = Iohb::Format::TS_CSV;
+          new_this->fileFormat = TS_CSV;
         }
         else if (Ioss::Utils::str_equal(format, "text")) {
-          new_this->fileFormat = Iohb::Format::TEXT;
+          new_this->fileFormat = TEXT;
         }
         else if (Ioss::Utils::str_equal(format, "ts_text")) {
-          new_this->fileFormat = Iohb::Format::TS_TEXT;
+          new_this->fileFormat = TS_TEXT;
         }
       }
 
@@ -196,26 +196,26 @@ namespace Iohb {
       }
 
       // "Predefined" formats... (put first so can modify settings if wanted)
-      if (fileFormat == Iohb::Format::CSV) {
+      if (fileFormat == CSV) {
         new_this->addTimeField = true;
         new_this->showLegend   = true;
         new_this->showLabels   = false;
         new_this->separator_   = ", ";
       }
-      else if (fileFormat == Iohb::Format::TS_CSV) {
+      else if (fileFormat == TS_CSV) {
         new_this->addTimeField = true;
         new_this->showLegend   = true;
         new_this->showLabels   = false;
         new_this->separator_   = ", ";
         new_this->tsFormat     = defaultTsFormat;
       }
-      else if (fileFormat == Iohb::Format::TEXT) {
+      else if (fileFormat == TEXT) {
         new_this->addTimeField = true;
         new_this->showLegend   = true;
         new_this->showLabels   = false;
         new_this->separator_   = "\t";
       }
-      else if (fileFormat == Iohb::Format::TS_TEXT) {
+      else if (fileFormat == TS_TEXT) {
         new_this->addTimeField = true;
         new_this->showLegend   = true;
         new_this->showLabels   = false;
@@ -274,7 +274,7 @@ namespace Iohb {
       }
 
       // SpyHis format is specific format, so don't override these settings:
-      if (fileFormat == Iohb::Format::SPYHIS) {
+      if (fileFormat == SPYHIS) {
         new_this->addTimeField = true;
         new_this->showLegend   = true;
         new_this->showLabels   = false;
@@ -290,7 +290,7 @@ namespace Iohb {
         }
 
         if (addTimeField) {
-          if (fileFormat == Iohb::Format::SPYHIS) {
+          if (fileFormat == SPYHIS) {
             new_this->legend_->add_legend("TIME");
           }
           else {
@@ -336,7 +336,7 @@ namespace Iohb {
   bool DatabaseIO::end_state__(int /* state */, double /* time */)
   {
     if (legend_ != nullptr) {
-      if (fileFormat == Iohb::Format::SPYHIS) {
+      if (fileFormat == SPYHIS) {
         time_t calendar_time = time(nullptr);
         *logStream << "% Sierra SPYHIS Output " << ctime(&calendar_time);
         *logStream << *legend_ << '\n'; // Legend output twice for SPYHIS

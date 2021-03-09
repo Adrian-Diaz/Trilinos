@@ -35,7 +35,7 @@
 #ifndef stk_util_environment_FormatTime_hpp
 #define stk_util_environment_FormatTime_hpp
 
-#include <string>  // for string
+#include <string>
 
 namespace stk {
 

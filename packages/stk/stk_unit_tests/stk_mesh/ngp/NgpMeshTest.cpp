@@ -45,9 +45,10 @@
 #include <stk_mesh/base/Ngp.hpp>
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_mesh/base/NgpSpaces.hpp>
+#include <stk_unit_test_utils/ioUtils.hpp>
 #include <stk_unit_test_utils/getOption.h>
 #include <stk_unit_test_utils/GetMeshSpec.hpp>
-#include <stk_unit_test_utils/stk_mesh_fixtures/TestHexFixture.hpp>
+#include <stk_unit_test_utils/MeshFixture.hpp>
 #include <stk_mesh/base/MetaData.hpp>
 #include <stk_mesh/base/BulkData.hpp>
 #include <stk_mesh/base/Bucket.hpp>
@@ -58,20 +59,19 @@
 #include <stk_util/environment/WallTime.hpp>
 #include <stk_util/util/StkNgpVector.hpp>
 #include "stk_mesh/base/FieldParallel.hpp"
-#include "stk_mesh/base/GetNgpMesh.hpp"
 
 #include <limits>
 
-class NgpMeshTest : public stk::mesh::fixtures::TestHexFixture
+class NgpMeshTest : public stk::unit_test_util::MeshFixture
 {
 public:
   void run_get_nodes_using_FastMeshIndex_test()
   {
-    setup_mesh(1, 1, 4);
+    setup_mesh("generated:1x1x4", stk::mesh::BulkData::NO_AUTO_AURA);
 
     stk::NgpVector<double> numNodesVec("numNodes", 1);
 
-    stk::mesh::NgpMesh & ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+    stk::mesh::NgpMesh & ngpMesh = get_bulk().get_updated_ngp_mesh();
     Kokkos::parallel_for(1,
                          KOKKOS_LAMBDA(const int i)
                          {
@@ -88,31 +88,13 @@ TEST_F(NgpMeshTest, get_nodes_using_FastMeshIndex)
   run_get_nodes_using_FastMeshIndex_test();
 }
 
-class NgpMeshRankLimit : public stk::mesh::fixtures::TestHexFixture {};
-
-TEST_F(NgpMeshRankLimit, tooManyRanksThrowWithMessage)
-{
-  setup_mesh(1,1,1, {"NODE","EDGE","FACE","ELEM","CONSTRAINT","JULIA"});
-
-  try {
-    stk::mesh::get_updated_ngp_mesh(get_bulk());
-    FAIL()<< "expected throw but didn't throw";
-  }
-  catch(std::exception& e) {
-    std::string expectedMsg("stk::mesh::NgpMesh: too many entity ranks (6). Required to be less-or-equal stk::topology::NUM_RANKS");
-    std::string msg(e.what());
-    EXPECT_TRUE((msg.find(expectedMsg) != std::string::npos));
-  }
-}
-
-class EntityIndexSpace : public stk::mesh::fixtures::TestHexFixture {};
-
+class EntityIndexSpace : public stk::unit_test_util::MeshFixture {};
 TEST_F(EntityIndexSpace, accessingLocalData_useLocalOffset)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) > 1) {
     return;
   }
-  setup_mesh(1, 1, 1);
+  setup_mesh("generated:1x1x1", stk::mesh::BulkData::NO_AUTO_AURA);
   std::vector<unsigned> entityToLocalOffset(get_bulk().get_size_of_entity_index_space(), 0);
 
   for(stk::mesh::EntityRank rank=stk::topology::NODE_RANK; rank<get_meta().entity_rank_count(); ++rank)
@@ -129,7 +111,7 @@ TEST_F(EntityIndexSpace, accessingLocalData_useLocalOffset)
     }
   }
 
-  std::vector<unsigned> gold {0,0,0,1,3,2,4,5,7,6};
+  std::vector<unsigned> gold {0,0,1,2,3,4,5,6,7,0};
   ASSERT_EQ(gold.size(), entityToLocalOffset.size());
   for(size_t i=0; i<gold.size(); i++)
   {
@@ -176,9 +158,10 @@ NGP_TEST_F(NgpMeshTest, volatileFastSharedCommMap)
 {
   if (stk::parallel_machine_size(MPI_COMM_WORLD) == 1) return;
 
-  setup_mesh(1, 1, 4);
+  setup_empty_mesh(stk::mesh::BulkData::NO_AUTO_AURA);
+  stk::io::fill_mesh("generated:1x1x4", get_bulk());
 
-  stk::mesh::NgpMesh & ngpMesh = stk::mesh::get_updated_ngp_mesh(get_bulk());
+  stk::mesh::NgpMesh & ngpMesh = get_bulk().get_updated_ngp_mesh();
   std::vector<int> comm_procs = get_bulk().all_sharing_procs(stk::topology::NODE_RANK);
 
   for (int proc : comm_procs) {
@@ -201,4 +184,6 @@ NGP_TEST_F(NgpMeshTest, volatileFastSharedCommMap)
     check_volatile_fast_shared_comm_map_values_on_device(ngpMesh, proc, deviceNgpMeshIndices);
   }
 }
+
+
 

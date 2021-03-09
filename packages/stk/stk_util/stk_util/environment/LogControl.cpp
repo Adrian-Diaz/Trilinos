@@ -32,8 +32,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/environment/LogControl.hpp"
-#include <map>  // for map, map<>::value_compare
+#include <stk_util/environment/LogControl.hpp>
+#include <functional>                   // for less
+#include <map>                          // for map, map<>::value_compare
 
 
 namespace stk {

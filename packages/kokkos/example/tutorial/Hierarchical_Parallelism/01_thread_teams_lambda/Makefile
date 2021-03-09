@@ -24,6 +24,15 @@ EXE = 01_thread_teams_lambda.host
 KOKKOS_DEVICES = "OpenMP"
 KOKKOS_ARCH = "SNB"
 endif
+ifneq (,$(findstring ROCm,$(KOKKOS_DEVICES)))
+CXX = /opt/rocm/hcc/bin/clang++
+CXXFLAGS = -O3
+LINK = ${CXX}
+LDFLAGS =
+EXE = 01_thread_teams_lambda.rocm
+KOKKOS_DEVICES = "ROCm"
+KOKKOS_ARCH = "Fiji"
+endif
 
 
 DEPFLAGS = -M
@@ -42,7 +51,7 @@ $(EXE): $(OBJ) $(KOKKOS_LINK_DEPENDS)
 	$(LINK) $(KOKKOS_LDFLAGS) $(LDFLAGS) $(EXTRA_PATH) $(OBJ) $(KOKKOS_LIBS) $(LIB) -o $(EXE)
 
 clean: kokkos-clean 
-	rm -f *.o *.cuda *.host
+	rm -f *.o *.cuda *.host *.rocm
 
 # Compilation rules
 

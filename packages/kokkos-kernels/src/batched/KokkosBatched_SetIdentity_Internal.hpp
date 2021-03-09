@@ -15,10 +15,10 @@ namespace KokkosBatched {
     template<typename ValueType>
     KOKKOS_INLINE_FUNCTION
     static int
-    invoke(const int m, const int n,
+    invoke(const int m, 
            /* */ ValueType *__restrict__ A, const int as0, const int as1) {
       const ValueType one(1), zero(0);
-      for (int j=0;j<n;++j) {
+      for (int j=0;j<m;++j) {
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
 #endif
@@ -40,7 +40,7 @@ namespace KokkosBatched {
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member,
-           const int m, const int n,
+           const int m, 
            /* */ ValueType *__restrict__ A, const int as0, const int as1) {
       const ValueType one(1), zero(0);
       Kokkos::parallel_for
@@ -49,7 +49,7 @@ namespace KokkosBatched {
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
 #endif
-          for (int j=0;j<n;++j) 
+          for (int j=0;j<m;++j) 
             A[i*as0+j*as1] = i == j ? one : zero;
         });
         
@@ -66,14 +66,14 @@ namespace KokkosBatched {
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member,
-           const int m, const int n,
+           const int m, 
            /* */ ValueType *__restrict__ A, const int as0, const int as1) {
       const ValueType one(1), zero(0);
       Kokkos::parallel_for
         (Kokkos::TeamThreadRange(member,m),
          [&](const int &i) {
 	   Kokkos::parallel_for
-	     (Kokkos::ThreadVectorRange(member,n),
+	     (Kokkos::ThreadVectorRange(member,m),
 	      [&](const int &j) {
 		A[i*as0+j*as1] = i == j ? one : zero;
 	      });

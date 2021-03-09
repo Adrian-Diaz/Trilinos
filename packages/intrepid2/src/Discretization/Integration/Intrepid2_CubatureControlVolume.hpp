@@ -64,11 +64,11 @@ namespace Intrepid2{
       Each primary cell contains one sub-control volume per node and
       there is one integration point per sub-control volume.
   */
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename pointValueType = double,
            typename weightValueType = double>
   class CubatureControlVolume
-    : public Cubature<DeviceType,pointValueType,weightValueType> {
+    : public Cubature<ExecSpaceType,pointValueType,weightValueType> {
   public:
 
     template<typename cubPointViewType,
@@ -135,14 +135,14 @@ namespace Intrepid2{
     ordinal_type degree_;
 
     // cubature points and weights associated with sub-control volume.
-    Kokkos::DynRankView<pointValueType, DeviceType> subcvCubaturePoints_;
-    Kokkos::DynRankView<weightValueType,DeviceType> subcvCubatureWeights_;
+    Kokkos::DynRankView<pointValueType, ExecSpaceType> subcvCubaturePoints_;
+    Kokkos::DynRankView<weightValueType,ExecSpaceType> subcvCubatureWeights_;
 
   public:
-    typedef typename Cubature<DeviceType,pointValueType,weightValueType>::PointViewType  PointViewType;
-    typedef typename Cubature<DeviceType,pointValueType,weightValueType>::weightViewType weightViewType;
+    typedef typename Cubature<ExecSpaceType,pointValueType,weightValueType>::PointViewType  PointViewType;
+    typedef typename Cubature<ExecSpaceType,pointValueType,weightValueType>::weightViewType weightViewType;
 
-    using Cubature<DeviceType,pointValueType,weightValueType>::getCubature;
+    using Cubature<ExecSpaceType,pointValueType,weightValueType>::getCubature;
 
     /** \brief Returns cubature points and weights
         (return arrays must be pre-sized/pre-allocated).
@@ -155,13 +155,13 @@ namespace Intrepid2{
     void
     getCubature( PointViewType  cubPoints,
                  weightViewType cubWeights,
-                 PointViewType  cellCoords) const override;
+                 PointViewType  cellCoords) const;
 
     /** \brief Returns the number of cubature points.
      */
     virtual
     ordinal_type
-    getNumPoints() const override {
+    getNumPoints() const {
       return primaryCellTopo_.getNodeCount();
     }
 
@@ -169,7 +169,7 @@ namespace Intrepid2{
      */
     virtual
     ordinal_type
-    getDimension() const override {
+    getDimension() const {
       return primaryCellTopo_.getDimension();
     }
 
@@ -177,7 +177,7 @@ namespace Intrepid2{
      */
     virtual
     const char*
-    getName() const override {
+    getName() const {
       return "CubatureControlVolume";
     }
 

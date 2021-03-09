@@ -126,8 +126,7 @@ struct TestParallel_For {
     init();
 
     // parallel-for functor called for num_elements number of iterations.
-    Kokkos::parallel_for("parallel_for",
-                         Kokkos::RangePolicy<ExecSpace>(0, num_elements),
+    Kokkos::parallel_for("parallel_for", num_elements,
                          ParallelForFunctor(deviceData, value));
 
     Kokkos::fence();

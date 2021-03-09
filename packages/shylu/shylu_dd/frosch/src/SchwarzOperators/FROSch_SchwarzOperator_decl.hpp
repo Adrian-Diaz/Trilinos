@@ -59,7 +59,7 @@
 #include <FROSch_InterfacePartitionOfUnity_def.hpp>
 #include <FROSch_LocalPartitionOfUnityBasis_def.hpp>
 
-#include <FROSch_SolverFactory_def.hpp>
+#include <FROSch_SubdomainSolver_def.hpp>
 
 // TODO: Auf const überprüfen
 // TODO: #ifndef überprüfen ??????
@@ -70,6 +70,8 @@ namespace FROSch {
     using namespace std;
     using namespace Teuchos;
     using namespace Xpetra;
+
+    class Solver;
 
     template <class SC = double,
               class LO = int,
@@ -140,8 +142,7 @@ namespace FROSch {
         using SchwarzOperatorPtrVec             = Array<SchwarzOperatorPtr>;
         using SchwarzOperatorPtrVecPtr          = ArrayRCP<SchwarzOperatorPtr>;
 
-        using SolverPtr                         = RCP<Solver<SC,LO,GO,NO> >;
-        using SolverFactoryPtr                  = RCP<SolverFactory<SC,LO,GO,NO> >;
+        using SubdomainSolverPtr                = RCP<SubdomainSolver<SC,LO,GO,NO> >;
 
         using DofOrderingVecPtr                 = ArrayRCP<DofOrdering>;
 

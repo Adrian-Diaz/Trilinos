@@ -9,13 +9,12 @@
 #ifndef Tempus_StaggeredForwardSensitivityModelEvaluator_decl_hpp
 #define Tempus_StaggeredForwardSensitivityModelEvaluator_decl_hpp
 
+#include "Tempus_SensitivityModelEvaluatorBase.hpp"
 #include "Thyra_StateFuncModelEvaluatorBase.hpp"
 #include "Thyra_DefaultMultiVectorProductVectorSpace.hpp"
 #include "NOX_Thyra.H"
 
-#include "Tempus_config.hpp"
 #include "Tempus_SolutionHistory.hpp"
-#include "Tempus_SensitivityModelEvaluatorBase.hpp"
 
 namespace Tempus {
 
@@ -103,7 +102,7 @@ public:
   virtual void setSolver(
     const Teuchos::RCP<Thyra::NonlinearSolverBase<Scalar> >& solver,
     const bool force_W_update) {
-    auto nox_solver =
+    Teuchos::RCP<Thyra::NOXNonlinearSolver> nox_solver =
       Teuchos::rcp_dynamic_cast<Thyra::NOXNonlinearSolver>(solver,true);
     lo_ = nox_solver->get_nonconst_W_op(force_W_update);
     po_ = nox_solver->get_nonconst_prec_op();

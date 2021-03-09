@@ -32,9 +32,10 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "stk_util/util/WriterManip.hpp"
-#include "stk_util/util/Writer.hpp"  // for Writer
-#include <iosfwd>                    // for ostream
+#include <stk_util/util/WriterManip.hpp>
+#include <iosfwd>                       // for ostream
+#include "stk_util/util/Writer.hpp"     // for Writer
+#include <iostream>
 
 namespace stk {
 namespace diag {

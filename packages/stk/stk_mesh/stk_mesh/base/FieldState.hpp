@@ -35,8 +35,6 @@
 #ifndef stk_mesh_FieldState_hpp
 #define stk_mesh_FieldState_hpp
 
-#include <cstdint>
-
 namespace stk {
 namespace mesh {
 
@@ -58,7 +56,7 @@ namespace mesh {
  *
  * See Field.hpp for more.
  */
-enum FieldState : uint8_t {
+enum FieldState {
   StateNone    = 0,  ///< \brief State of a field with one state
   StateNew     = 0,  ///< \brief Newest state of a field with two or more states
   StateNP1     = 0,  ///< \brief Newest state of a field with two or more states

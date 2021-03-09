@@ -104,10 +104,10 @@ namespace Intrepid2 {
           \li rank(<b><var>inMats</var></b>) == 2
           \li matrix dimension is limited to 1, 2, and 3
       */
-      template<class MatrixViewType>
+      template<typename inMatValueType, class ...inMatProperties>
       KOKKOS_INLINE_FUNCTION
-      static typename MatrixViewType::value_type
-      det( const MatrixViewType inMat );
+      static inMatValueType
+      det( const Kokkos::DynRankView<inMatValueType,inMatProperties...> inMat );
 
       /** \brief Computes dot product of two vectors stored in
           arrays of rank 1.
@@ -236,9 +236,12 @@ namespace Intrepid2 {
         \li matrices must be square
         \li matrix dimensions are limited to 1, 2, and 3
     */
-    template<class InverseMatrixViewType, class MatrixViewType>
+    template<typename inverseMatValueType, class ...inverseMatProperties, 
+             typename inMatValueType,      class ...inMatProperties>
     static void 
-    inverse( InverseMatrixViewType inverseMats, MatrixViewType inMats );
+    inverse(       Kokkos::DynRankView<inverseMatValueType,inverseMatProperties...> inverseMats, 
+             const Kokkos::DynRankView<inMatValueType,     inMatProperties...>      inMats );
+    
 
     /** \brief Computes determinants of matrices stored in
         an array of total rank 3 (array of matrices),
@@ -254,9 +257,11 @@ namespace Intrepid2 {
         \li dimensions i0, i1 of <b><var>detArray</var></b> and <b><var>inMats</var></b> must agree
         \li matrix dimensions are limited to 1, 2, and 3
     */
-    template<class DeterminantArrayViewType, class MatrixViewType>
+    template<typename detArrayValueType, class ...detArrayProperties,
+             typename inMatValueType,    class ...inMatProperties>
     static void 
-    det( DeterminantArrayViewType detArray, const MatrixViewType inMats );
+    det(       Kokkos::DynRankView<detArrayValueType,detArrayProperties...> detArray, 
+         const Kokkos::DynRankView<inMatValueType,   inMatProperties...>    inMats );
     
     /** \brief Adds arrays <b><var>inArray1</var></b> and <b><var>inArray2</var></b>:\n
         <b><var>sumArray</var></b> = <b><var>inArray1</var></b> + <b><var>inArray2</var></b>.

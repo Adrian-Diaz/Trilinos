@@ -35,10 +35,10 @@
 #ifndef STKUTIL_SCHEDULER_h
 #define STKUTIL_SCHEDULER_h
 
-#include <iosfwd>  // for ostream
-#include <map>     // for map
-#include <set>     // for set
-#include <string>  // for string
+#include <map>
+#include <set>
+#include <iosfwd>
+#include <string>
 
 namespace stk
 {

@@ -108,7 +108,7 @@ namespace Compadre {
         //! Whether or not the SamplingTensor acts on the target site as well as the neighbors.
         //! This makes sense only in staggered schemes, when each target site is also a source site
         bool use_target_site_weights;
-        //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace
+        //! Whether the SamplingFunctional + ReconstructionSpace results in a nontrivial nullspace requiring SVD
         bool nontrivial_nullspace;
         //! Describes the SamplingFunction relationship to targets, neighbors
         int transform_type;
@@ -173,8 +173,10 @@ namespace Compadre {
 
     //! Dense solver type
     enum DenseSolverType {
-        //! QR+Pivoting factorization performed on P*sqrt(w) matrix
+        //! QR factorization performed on P*sqrt(w) matrix
         QR, 
+        //! SVD factorization performed on P*sqrt(w) matrix
+        SVD, 
         //! LU factorization performed on P^T*W*P matrix
         LU, 
     };

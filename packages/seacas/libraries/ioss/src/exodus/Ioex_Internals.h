@@ -362,14 +362,12 @@ namespace Ioex {
   public:
     Mesh() = default;
 
-    Mesh(int dim, const char *the_title, const Ioss::ParallelUtils &util, bool file_pp)
-        : dimensionality(dim), file_per_processor(file_pp), parallelUtil(util)
+    Mesh(int dim, char *the_title, bool file_pp) : dimensionality(dim), file_per_processor(file_pp)
     {
       Ioss::Utils::copy_string(title, the_title);
     }
 
     void populate(Ioss::Region *region);
-    void get_global_counts();
 
     char title[MAX_LINE_LENGTH + 1]{};
     int  dimensionality{};
@@ -388,7 +386,6 @@ namespace Ioex {
     std::vector<ElemSet>   elemsets{};
     std::vector<SideSet>   sidesets{};
     CommunicationMetaData  comm{};
-    Ioss::ParallelUtils    parallelUtil;
   };
 
   class Internals
@@ -411,6 +408,8 @@ namespace Ioex {
     static void copy_database(int in_file, int out_file, bool transient_also = true);
 
   private:
+    void get_global_counts(Mesh &mesh);
+
     int put_metadata(const Mesh &mesh, const CommunicationMetaData &comm);
     int put_metadata(const std::vector<Assembly> &assemblies);
     int put_metadata(const std::vector<Blob> &blobs);

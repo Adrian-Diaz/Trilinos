@@ -151,7 +151,6 @@ public:
   const FunctorType m_functor ;
   const MPVectorWorkConfig< Cuda, Tag > m_config;
   const Cuda::size_type m_work ;
-  const Policy m_policy;
 
   template <class TagType>
   inline __device__
@@ -166,8 +165,6 @@ public:
   exec_range(const Cuda::size_type i, Cuda::size_type j) const {
     m_functor(TagType(), i, j);
   }
-
-  Policy const& get_policy() const { return m_policy; }
 
   inline
   __device__
@@ -186,8 +183,7 @@ public:
                const MPVectorWorkConfig< Cuda, Tag > & work_config )
     : m_functor( functor ) ,
       m_config( work_config ) ,
-      m_work( work_config.range ),
-      m_policy()
+      m_work( work_config.range )
   {
   }
 
@@ -216,7 +212,7 @@ public:
     const dim3 grid( nblock , 1 , 1 );
 
     const Cuda::size_type shared = m_config.shared;
-    CudaParallelLaunch< ParallelFor >( *this , grid , block , shared , m_policy.space().impl_internal_space_instance(), false );
+    CudaParallelLaunch< ParallelFor >( *this , grid , block , shared , Policy().space().impl_internal_space_instance(), false );
   }
 };
 

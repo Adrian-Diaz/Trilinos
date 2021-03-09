@@ -68,9 +68,7 @@
 #include "MueLu_FactoryFactory_fwd.hpp"
 #include "MueLu_FilteredAFactory_fwd.hpp"
 #include "MueLu_GenericRFactory_fwd.hpp"
-#include "MueLu_InitialBlockNumberFactory_fwd.hpp"
 #include "MueLu_LineDetectionFactory_fwd.hpp"
-#include "MueLu_LocalOrdinalTransferFactory_fwd.hpp"
 #include "MueLu_NotayAggregationFactory_fwd.hpp"
 #include "MueLu_NullspaceFactory_fwd.hpp"
 #include "MueLu_PatternFactory_fwd.hpp"
@@ -229,10 +227,6 @@ namespace MueLu {
                                           int levelID, std::vector<keep_pair>& keeps, RCP<Factory> & nullSpaceFactory) const;
     void UpdateFactoryManager_Nullspace(Teuchos::ParameterList& paramList, const Teuchos::ParameterList& defaultList, FactoryManager& manager,
                                         int levelID, std::vector<keep_pair>& keeps, RCP<Factory> & nullSpaceFactory) const;
-    void UpdateFactoryManager_BlockNumber(Teuchos::ParameterList& paramList, const Teuchos::ParameterList& defaultList, 
-                                          FactoryManager& manager,int levelID, std::vector<keep_pair>& keeps) const;
-    void UpdateFactoryManager_LocalOrdinalTransfer(const std::string VarName, Teuchos::ParameterList& paramList, const Teuchos::ParameterList& defaultList, 
-                                           FactoryManager& manager,int levelID, std::vector<keep_pair>& keeps) const;
 
     // Algorithm-specific components for UpdateFactoryManager
     void UpdateFactoryManager_SemiCoarsen(Teuchos::ParameterList& paramList, const Teuchos::ParameterList& defaultList, FactoryManager& manager,
@@ -248,11 +242,7 @@ namespace MueLu {
     void UpdateFactoryManager_Matlab(Teuchos::ParameterList& paramList, const Teuchos::ParameterList& defaultList, FactoryManager& manager,
                                      int levelID, std::vector<keep_pair>& keeps) const;
 
-
-
-
     bool useCoordinates_;
-    bool useBlockNumber_;
     bool useKokkos_;
     //@}
 

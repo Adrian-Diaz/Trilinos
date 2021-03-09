@@ -171,15 +171,15 @@ private:
   Teuchos::RCP<const std::map<std::string,std::string> > fieldMap_;
 
   //! Local indices for unknowns
-  PHX::View<LO**> worksetLIDs_;
+  Kokkos::View<LO**,PHX::Device> worksetLIDs_;
 
   //! Offset into the cell lids for each field
-  std::vector<PHX::View<int*>> fieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> fieldOffsets_;
 
   //! The local basis index corresponding to the fieldOffset_. Used to
   //! index into the basis index of MDFields. This is only required
   //! for tangent/normal BCs.
-  std::vector<PHX::View<int*>> basisIndexForMDFieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> basisIndexForMDFieldOffsets_;
 
   std::size_t side_subcell_dim_;
   std::size_t local_side_id_;
@@ -267,18 +267,18 @@ private:
   Teuchos::RCP<const BlockedTpetraLinearObjContainer<RealType,LO,GO,NodeT> > blockedContainer_;
 
   //! Local indices for unknowns
-  PHX::View<LO**> worksetLIDs_;
+  Kokkos::View<LO**,PHX::Device> worksetLIDs_;
 
   //! Offset into the cell lids for each field. Size of number of fields to scatter.
-  std::vector<PHX::View<int*>> fieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> fieldOffsets_;
 
   //! The local basis index corresponding to the fieldOffset_. Used to
   //! index into the basis index of MDFields. This is only required
   //! for tangent/normal BCs.
-  std::vector<PHX::View<int*>> basisIndexForMDFieldOffsets_;
+  std::vector<Kokkos::View<int*,PHX::Device>> basisIndexForMDFieldOffsets_;
 
   //! The offset values of the blocked DOFs per element. Size of number of blocks in the product vector + 1. The plus one is a sentinel.
-  PHX::View<LO*> blockOffsets_;
+  Kokkos::View<LO*,PHX::Device> blockOffsets_;
 
   //! If set to true, allows runtime disabling of dirichlet BCs on node-by-node basis
   bool checkApplyBC_;

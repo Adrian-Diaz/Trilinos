@@ -232,7 +232,7 @@ namespace panzer
       /**
        *  \brief Post-Registration Setup.
        *
-       *  Sets the `PHX::View`s for all of the field multipliers, sets the
+       *  Sets the `Kokkos::View`s for all of the field multipliers, sets the
        *  basis index, and sets up the field that will be used to build up the
        *  result of the integration.
        *
@@ -337,11 +337,11 @@ namespace panzer
       fieldMults_;
 
       /**
-       *  \brief The `PHX::View` representation of the (possibly empty) list
+       *  \brief The `Kokkos::View` representation of the (possibly empty) list
        *         of fields that are multipliers out in front of the integral
        *         (\f$ a(x) \f$, \f$ b(x) \f$, etc.).
        */
-    PHX::View<PHX::View<const ScalarT**>*> kokkosFieldMults_;
+    Kokkos::View<Kokkos::View<const ScalarT**,typename PHX::DevLayout<ScalarT>::type,PHX::Device>*> kokkosFieldMults_;
 
       /**
        *  \brief The name of the basis we're using.

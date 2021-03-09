@@ -32,11 +32,13 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-#include "gtest/gtest.h"
-#include "stk_util/parallel/CommSparse.hpp"    // for CommSparse
-#include "stk_util/parallel/Parallel.hpp"      // for MPI_COMM_WORLD, MPI_Comm, ompi_communicator_t
-#include "stk_util/parallel/ParallelComm.hpp"  // for CommBuffer
-#include "stk_util/stk_config.h"               // for STK_HAS_MPI
+#include <stk_util/parallel/Parallel.hpp>  // for parallel_machine_size, etc
+#include <stk_util/parallel/CommSparse.hpp>  // for CommSparse
+#include <stk_util/parallel/MPI.hpp>
+#include <gtest/gtest.h>
+#include <vector>                       // for vector
+#include <stk_util/stk_config.h>
+#include <limits>
 
 #if defined ( STK_HAS_MPI )
 

@@ -34,12 +34,14 @@
 // 
  */
 
-#include "stk_util/parallel/MPI.hpp"
-#include "stk_util/stk_config.h"            // for STK_HAS_MPI
-
+#include <stk_util/stk_config.h>
 #if defined( STK_HAS_MPI )
 
-#include "stk_util/util/ReportHandler.hpp"  // for ThrowRequireMsg
+#include <stk_util/parallel/MPI.hpp>
+#include <stk_util/util/ReportHandler.hpp> // for ThrowAssertMsg
+#include <sstream>                      // for ostringstream, etc
+#include "mpi.h"                        // for MPI_Datatype, etc
+#include <assert.h>                     // for static_assert
 
 namespace sierra {
 namespace MPI {

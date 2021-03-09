@@ -345,11 +345,10 @@ void ParameterList::print() const
 
 std::ostream& ParameterList::print(std::ostream& os, const PrintOptions &printOptions ) const
 {
-  const int   indent      = printOptions.indent();
-  const bool  showTypes   = printOptions.showTypes();
-  const bool  showFlags   = printOptions.showFlags();
-  const bool  showDoc     = printOptions.showDoc();
-  const bool  showDefault = printOptions.showDefault();
+  const int   indent    = printOptions.indent();
+  const bool  showTypes = printOptions.showTypes();
+  const bool  showFlags = printOptions.showFlags();
+  const bool  showDoc   = printOptions.showDoc();
   const std::string linePrefix(indent,' ');
   RCP<FancyOStream>
     out = getFancyOStream(rcp(&os,false));
@@ -366,8 +365,6 @@ std::ostream& ParameterList::print(std::ostream& os, const PrintOptions &printOp
       RCP<const ParameterEntryValidator>
         validator = entry_i.validator();
       if(entry_i.isList())
-        continue;
-      if(!showDefault && entry_i.isDefault())
         continue;
       *out << name_i;
       const std::string &docString = entry_i.docString();
@@ -402,9 +399,9 @@ std::ostream& ParameterList::print(std::ostream& os, const PrintOptions &printOp
 }
 
 
-std::ostream& ParameterList::print(std::ostream& os, int indent, bool showTypes, bool showFlags, bool showDefault) const
+std::ostream& ParameterList::print(std::ostream& os, int indent, bool showTypes, bool showFlags) const
 {
-  return this->print(os,PrintOptions().indent(indent).showTypes(showTypes).showFlags(showFlags).showDefault(showDefault));
+  return this->print(os,PrintOptions().indent(indent).showTypes(showTypes).showFlags(showFlags));
 }
 
 

@@ -411,10 +411,10 @@ IfpackPreconditionerFactory::getValidParameters() const
       "Number of rows/columns overlapped between subdomains in different"
       "\nprocesses in the additive Schwarz-type domain-decomposition preconditioners."
       );
-    validParamList->set(
-      IfpackSettings_name, Ifpack_GetValidParameters(),
+    validParamList->sublist(
+      IfpackSettings_name, false,
       "Preconditioner settings that are passed onto the Ifpack preconditioners themselves."
-      );
+      ).setParameters(Ifpack_GetValidParameters());
     // Note that in the above setParameterList(...) function that we actually
     // validate down into the first level of this sublist.  Really the
     // Ifpack_Preconditioner objects themselves should do validation but we do

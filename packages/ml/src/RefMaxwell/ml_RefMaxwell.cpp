@@ -19,7 +19,6 @@
 #include "Teuchos_ArrayRCP.hpp"
 
 #include "EpetraExt_RowMatrixOut.h"
-#include "EpetraExt_MatrixMatrix.h"
 #include "ml_ifpack_epetra_wrap.h"
 
 
@@ -239,10 +238,7 @@ int ML_Epetra::RefMaxwellPreconditioner::ComputePreconditioner(const bool /* Che
   else very_verbose_=verbose_=false;
   aggregate_with_sigma= List_.get("refmaxwell: aggregate with sigma",true);
   bool disable_addon = List_.get("refmaxwell: disable addon",true);
-  std::string matrix11 = List_.get("refmaxwell: 11matrix","SM");
   double rowsum_threshold = List_.get("refmaxwell: rowsum threshold",-1.0);
-
-
 
   /* Nuke everything if we've done this already */
   if(IsComputePreconditionerOK_) DestroyPreconditioner();
@@ -422,31 +418,10 @@ int ML_Epetra::RefMaxwellPreconditioner::ComputePreconditioner(const bool /* Che
 #endif
 
   /* Build the (1,1) Block Operator, if needed */
-#ifdef ENABLE_MS_MATRIX
-  if (matrix11 == "M") {
-    if(verbose_ && !Comm_->MyPID()) 
-      printf("Using the 'M' Matrix for (1,1)\n");      
-    Operator11_=rcp((Epetra_CrsMatrix*)Ms_Matrix_,false);
-  }
-  else if(matrix11 == "S") {
-    if(verbose_ && !Comm_->MyPID()) 
-      printf("Using the 'S' Matrix for (1,1)\n");      
-    Epetra_CrsMatrix* S=0;
-    EpetraExt::MatrixMatrix::Add(*(Epetra_CrsMatrix*)SM_Matrix_,false,1.0,*(Epetra_CrsMatrix*)Ms_Matrix_,false,-1.0,S);
-    S->FillComplete();
-    Operator11_ = rcp(S);
-  }
+  if(disable_addon)
+    Operator11_=rcp((Epetra_CrsMatrix*)SM_Matrix_,false);
   else
-#endif
-  {
-    if(verbose_ && !Comm_->MyPID()) 
-      printf("Using the 'S+M' Matrix for (1,1)\n");      
-
-    if(disable_addon)
-      Operator11_=rcp((Epetra_CrsMatrix*)SM_Matrix_,false);
-    else
-      Operator11_=rcp(new ML_RefMaxwell_11_Operator(*SM_Matrix_,*D0_Matrix_,*M0inv_Matrix_,*M1_Matrix_));
-  }
+    Operator11_=rcp(new ML_RefMaxwell_11_Operator(*SM_Matrix_,*D0_Matrix_,*M0inv_Matrix_,*M1_Matrix_));
 
 #ifdef ML_TIMING
   StopTimer(&t_time_curr,&(t_diff[3]));

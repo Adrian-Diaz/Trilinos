@@ -163,7 +163,7 @@ namespace MueLu {
 
     NOTE -- it's assumed that A has been fillComplete'd.
     */
-    static RCP<Vector> GetMatrixDiagonalInverse(const Matrix& A, Magnitude tol = Teuchos::ScalarTraits<Scalar>::eps()*100, Scalar valReplacement = Teuchos::ScalarTraits<Scalar>::zero()) {
+    static RCP<Vector> GetMatrixDiagonalInverse(const Matrix& A, Magnitude tol = Teuchos::ScalarTraits<Scalar>::eps()*100, Scalar tolReplacement = Teuchos::ScalarTraits<Scalar>::zero()) {
       Teuchos::TimeMonitor MM = *Teuchos::TimeMonitor::getNewTimer("UtilitiesBase::GetMatrixDiagonalInverse");
 
       RCP<const Map> rowMap = A.getRowMap();
@@ -171,7 +171,7 @@ namespace MueLu {
 
       A.getLocalDiagCopy(*diag);
 
-      RCP<Vector> inv = MueLu::UtilitiesBase<Scalar,LocalOrdinal,GlobalOrdinal,Node>::GetInverse(diag, tol, valReplacement);
+      RCP<Vector> inv = MueLu::UtilitiesBase<Scalar,LocalOrdinal,GlobalOrdinal,Node>::GetInverse(diag, tol, tolReplacement);
 
       return inv;
     }
@@ -184,17 +184,11 @@ namespace MueLu {
     */
     static Teuchos::RCP<Vector> GetLumpedMatrixDiagonal(Matrix const & A, const bool doReciprocal = false,
                                                         Magnitude tol = Teuchos::ScalarTraits<Scalar>::eps()*100,
-                                                        Scalar valReplacement = Teuchos::ScalarTraits<Scalar>::zero(),
-                                                        const bool replaceSingleEntryRowWithZero = false) {
-
-      typedef Teuchos::ScalarTraits<Scalar> TST;
+                                                        Scalar tolReplacement = Teuchos::ScalarTraits<Scalar>::zero()) {
 
       RCP<Vector> diag = Teuchos::null;
-      const Scalar zero = TST::zero();
-      const Scalar one = TST::one();
-      const Scalar two = one + one;
-
-tol = 0.;
+      const Scalar zero = Teuchos::ScalarTraits<Scalar>::zero();
+      const Scalar one = Teuchos::ScalarTraits<Scalar>::one();
 
       Teuchos::RCP<const Matrix> rcpA = Teuchos::rcpFromRef(A);
 
@@ -204,38 +198,21 @@ tol = 0.;
         RCP<const Map> rowMap = rcpA->getRowMap();
         diag = Xpetra::VectorFactory<Scalar,LocalOrdinal,GlobalOrdinal,Node>::Build(rowMap,true);
         ArrayRCP<Scalar> diagVals = diag->getDataNonConst(0);
-        Teuchos::Array<Scalar> regSum(diag->getLocalLength());
         Teuchos::ArrayView<const LocalOrdinal> cols;
         Teuchos::ArrayView<const Scalar> vals;
-
-        std::vector<int> nnzPerRow(rowMap->getNodeNumElements());
-
-        const Magnitude zeroMagn = TST::magnitude(zero);
         for (size_t i = 0; i < rowMap->getNodeNumElements(); ++i) {
-          nnzPerRow[i] = 0;
           rcpA->getLocalRowView(i, cols, vals);
           diagVals[i] = zero;
           for (LocalOrdinal j = 0; j < cols.size(); ++j) {
-            regSum[i] += vals[j];
-            const Magnitude rowEntryMagn = TST::magnitude(vals[j]);
-            if (rowEntryMagn > zeroMagn)
-              nnzPerRow[i]++;
-            diagVals[i] += rowEntryMagn;
+            diagVals[i] += Teuchos::ScalarTraits<Scalar>::magnitude(vals[j]);
           }
         }
         if (doReciprocal) {
           for (size_t i = 0; i < rowMap->getNodeNumElements(); ++i) {
-            if (replaceSingleEntryRowWithZero && nnzPerRow[i] <= static_cast<int>(1))
-              diagVals[i] = zero;
-            else if (replaceSingleEntryRowWithZero && diagVals[i] != zero && TST::magnitude(diagVals[i]) < TST::magnitude(two*regSum[i]))
-              diagVals[i] = one / (two*regSum[i]);
-            else {
-              if(TST::magnitude(diagVals[i]) > tol)
-                diagVals[i] = one / diagVals[i];
-              else {
-                diagVals[i] = valReplacement;
-              }
-            }
+          if(Teuchos::ScalarTraits<Scalar>::magnitude(diagVals[i]) > tol)
+            diagVals[i] = one / diagVals[i];
+          else
+            diagVals[i] = tolReplacement;
           }
         }
       } else {
@@ -258,17 +235,18 @@ tol = 0.;
 
       }
 
+      // we should never get here...
       return diag;
     }
 
     /*! @brief Return vector containing inverse of input vector
      *
      * @param[in] v: input vector
-     * @param[in] tol: tolerance. If entries of input vector are smaller than tolerance they are replaced by valReplacement (see below). The default value for tol is 100*eps (machine precision)
-     * @param[in] valReplacement: Value put in for undefined entries in output vector (default: 0.0)
+     * @param[in] tol: tolerance. If entries of input vector are smaller than tolerance they are replaced by tolReplacement (see below). The default value for tol is 100*eps (machine precision)
+     * @param[in] tolReplacement: Value put in for undefined entries in output vector (default: 0.0)
      * @ret: vector containing inverse values of input vector v
     */
-    static Teuchos::RCP<Vector> GetInverse(Teuchos::RCP<const Vector> v, Magnitude tol = Teuchos::ScalarTraits<Scalar>::eps()*100, Scalar valReplacement = Teuchos::ScalarTraits<Scalar>::zero()) {
+    static Teuchos::RCP<Vector> GetInverse(Teuchos::RCP<const Vector> v, Magnitude tol = Teuchos::ScalarTraits<Scalar>::eps()*100, Scalar tolReplacement = Teuchos::ScalarTraits<Scalar>::zero()) {
 
       RCP<Vector> ret = Xpetra::VectorFactory<Scalar,LocalOrdinal,GlobalOrdinal,Node>::Build(v->getMap(),true);
 
@@ -281,7 +259,7 @@ tol = 0.;
         for(size_t r = 0; r < bmap->getNumMaps(); ++r) {
           RCP<const MultiVector> submvec = bv->getMultiVector(r,bmap->getThyraMode());
           RCP<const Vector> subvec = submvec->getVector(0);
-          RCP<Vector> subvecinf = MueLu::UtilitiesBase<Scalar,LocalOrdinal,GlobalOrdinal,Node>::GetInverse(subvec,tol,valReplacement);
+          RCP<Vector> subvecinf = MueLu::UtilitiesBase<Scalar,LocalOrdinal,GlobalOrdinal,Node>::GetInverse(subvec,tol,tolReplacement);
           bret->setMultiVector(r, subvecinf, bmap->getThyraMode());
         }
         return ret;
@@ -294,7 +272,7 @@ tol = 0.;
         if(Teuchos::ScalarTraits<Scalar>::magnitude(inputVals[i]) > tol)
           retVals[i] = Teuchos::ScalarTraits<Scalar>::one() / inputVals[i];
         else
-          retVals[i] = valReplacement;
+          retVals[i] = tolReplacement;
       }
       return ret;
     }

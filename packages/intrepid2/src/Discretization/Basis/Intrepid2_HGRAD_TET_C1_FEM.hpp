@@ -101,7 +101,7 @@ namespace Intrepid2 {
 
       };
 
-      template<typename DeviceType,
+      template<typename ExecSpaceType,
                typename outputValueValueType, class ...outputValueProperties,
                typename inputPointValueType,  class ...inputPointProperties>
       static void
@@ -154,24 +154,24 @@ namespace Intrepid2 {
     };
   }
 
-  template<typename DeviceType = void,
+  template<typename ExecSpaceType = void,
            typename outputValueType = double,
            typename pointValueType = double>
-  class Basis_HGRAD_TET_C1_FEM : public Basis<DeviceType,outputValueType,pointValueType> {
+  class Basis_HGRAD_TET_C1_FEM : public Basis<ExecSpaceType,outputValueType,pointValueType> {
   public:
-    using OrdinalTypeArray1DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
-    using OrdinalTypeArray2DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
-    using OrdinalTypeArray3DHost = typename Basis<DeviceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
+    using OrdinalTypeArray1DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray1DHost;
+    using OrdinalTypeArray2DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray2DHost;
+    using OrdinalTypeArray3DHost = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OrdinalTypeArray3DHost;
 
     /** \brief  Constructor.
      */
     Basis_HGRAD_TET_C1_FEM();
 
-    using OutputViewType = typename Basis<DeviceType,outputValueType,pointValueType>::OutputViewType;
-    using PointViewType  = typename Basis<DeviceType,outputValueType,pointValueType>::PointViewType;
-    using ScalarViewType = typename Basis<DeviceType,outputValueType,pointValueType>::ScalarViewType;
+    using OutputViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::OutputViewType;
+    using PointViewType  = typename Basis<ExecSpaceType,outputValueType,pointValueType>::PointViewType;
+    using ScalarViewType = typename Basis<ExecSpaceType,outputValueType,pointValueType>::ScalarViewType;
 
-    using Basis<DeviceType,outputValueType,pointValueType>::getValues;
+    using Basis<ExecSpaceType,outputValueType,pointValueType>::getValues;
 
     virtual
     void
@@ -187,7 +187,7 @@ namespace Intrepid2 {
                                       this->getCardinality() );
 #endif
       Impl::Basis_HGRAD_TET_C1_FEM::
-        getValues<DeviceType>( outputValues,
+        getValues<ExecSpaceType>( outputValues,
                                   inputPoints,
                                   operatorType );
     }
@@ -237,22 +237,18 @@ namespace Intrepid2 {
         \param [in] subCellOrd - position of the subCell among of the subCells having the same dimension
         \return pointer to the subCell basis of dimension subCellDim and position subCellOrd
      */
-    BasisPtr<DeviceType, outputValueType, pointValueType>
+    BasisPtr<ExecSpaceType, outputValueType, pointValueType>
       getSubCellRefBasis(const ordinal_type subCellDim, const ordinal_type subCellOrd) const override{
       if(subCellDim == 1) {
         return Teuchos::rcp(new
-          Basis_HGRAD_LINE_C1_FEM<DeviceType, outputValueType, pointValueType>());
+          Basis_HGRAD_LINE_C1_FEM<ExecSpaceType, outputValueType, pointValueType>());
       } else if(subCellDim == 1) {
         return Teuchos::rcp(new
-          Basis_HGRAD_TRI_C1_FEM<DeviceType, outputValueType, pointValueType>());
+          Basis_HGRAD_TRI_C1_FEM<ExecSpaceType, outputValueType, pointValueType>());
       }
       INTREPID2_TEST_FOR_EXCEPTION(true,std::invalid_argument,"Input parameters out of bounds");
     }
 
-    BasisPtr<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>
-    getHostBasis() const override{
-      return Teuchos::rcp(new Basis_HGRAD_TET_C1_FEM<typename Kokkos::HostSpace::device_type,outputValueType,pointValueType>());
-    }
   };
 }// namespace Intrepid2
 

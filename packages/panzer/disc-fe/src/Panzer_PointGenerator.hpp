@@ -59,9 +59,6 @@ public:
 
   //! Get the points for a particular topology
   virtual int numPoints(const shards::CellTopology & topo) const = 0;
-
-  //! Check if the generator can generate points for the given topology
-  virtual bool hasPoints(const shards::CellTopology & topo) const = 0;
 };
 
 }

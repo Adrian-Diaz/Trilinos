@@ -262,7 +262,6 @@ public:
   {
     Zoltan2_AlgMJ<Adapter>::getValidParameters(pl);
     AlgPuLP<Adapter>::getValidParameters(pl);
-    AlgQuotient<Adapter>::getValidParameters(pl);
     AlgPTScotch<Adapter>::getValidParameters(pl);
     AlgSerialGreedy<Adapter>::getValidParameters(pl);
     AlgForTestingOnly<Adapter>::getValidParameters(pl);
@@ -272,7 +271,7 @@ public:
     // didn't want to have low level changes with this particular refactor
     // TO DO: Add more Tuple constructors and then redo this code to be
     //  Teuchos::tuple<std::string> algorithm_names( "rcb", "multijagged" ... );
-    Array<std::string> algorithm_names(19);
+    Array<std::string> algorithm_names(18);
     algorithm_names[0] = "rcb";
     algorithm_names[1] = "multijagged";
     algorithm_names[2] = "rib";
@@ -281,17 +280,16 @@ public:
     algorithm_names[5] = "phg";
     algorithm_names[6] = "metis";
     algorithm_names[7] = "parmetis";
-    algorithm_names[8] = "quotient";
-    algorithm_names[9] = "pulp";
-    algorithm_names[10] = "parma";
-    algorithm_names[11] = "scotch";
-    algorithm_names[12] = "ptscotch";
-    algorithm_names[13] = "block";
-    algorithm_names[14] = "cyclic";
-    algorithm_names[15] = "sarma";
-    algorithm_names[16] = "random";
-    algorithm_names[17] = "zoltan";
-    algorithm_names[18] = "forTestingOnly";
+    algorithm_names[8] = "pulp";
+    algorithm_names[9] = "parma";
+    algorithm_names[10] = "scotch";
+    algorithm_names[11] = "ptscotch";
+    algorithm_names[12] = "block";
+    algorithm_names[13] = "cyclic";
+    algorithm_names[14] = "sarma";
+    algorithm_names[15] = "random";
+    algorithm_names[16] = "zoltan";
+    algorithm_names[17] = "forTestingOnly";
     RCP<Teuchos::StringValidator> algorithm_Validator = Teuchos::rcp(
       new Teuchos::StringValidator( algorithm_names ));
     pl.set("algorithm", "random", "partitioning algorithm",
@@ -567,17 +565,10 @@ void PartitioningProblem<Adapter>::solve(bool updateInputData)
                                             this->baseInputAdapter_));
     }
     else if (algName_ == std::string("parmetis")) {
-      using model_t = GraphModel<base_adapter_t>;
-      this->algorithm_ = rcp(new AlgParMETIS<Adapter, model_t>(this->envConst_,
+      this->algorithm_ = rcp(new AlgParMETIS<Adapter>(this->envConst_,
                                             this->comm_,
                                             this->graphModel_));
     }
-    else if (algName_ == std::string("quotient")) {
-      this->algorithm_ = rcp(new AlgQuotient<Adapter>(this->envConst_,
-					   this->comm_, 
-					   this->baseInputAdapter_));
-			     //"parmetis")); // The default alg. to use inside Quotient 
-    }                                                    // is ParMETIS for now.
     else if (algName_ == std::string("pulp")) {
       this->algorithm_ = rcp(new AlgPuLP<Adapter>(this->envConst_,
                                             this->comm_,
@@ -834,10 +825,6 @@ void PartitioningProblem<Adapter>::createPartitioningProblem(bool newData)
       algName_ = algorithm;
       removeSelfEdges = true;
       needConsecutiveGlobalIds = true;
-    }
-    else if (algorithm == std::string("quotient"))
-    {
-      algName_ = algorithm;
     }
     else if (algorithm == std::string("scotch") ||
              algorithm == std::string("ptscotch")) // BDD: Don't construct graph for scotch here

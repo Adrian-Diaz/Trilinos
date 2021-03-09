@@ -36,7 +36,6 @@
 #include <gtest/gtest.h>
 #include <stk_mesh/base/NgpMesh.hpp>
 #include <stk_mesh/base/BulkData.hpp>
-#include <stk_mesh/base/GetNgpMesh.hpp>
 #include <stk_util/environment/WallTime.hpp>
 #include <stk_util/environment/perf_util.hpp>
 #include <stk_util/parallel/ParallelReduce.hpp>
@@ -62,7 +61,7 @@ public:
     get_bulk().modification_begin();
     get_bulk().change_entity_parts<stk::mesh::ConstPartVector>(get_element(cycle), {get_part()});
     get_bulk().modification_end();
-    stk::mesh::get_updated_ngp_mesh(get_bulk());
+    get_bulk().get_updated_ngp_mesh();
   }
 
 private:
@@ -98,7 +97,7 @@ public:
     get_bulk().modification_begin();
     get_bulk().declare_element(get_new_entity_id(cycle));
     get_bulk().modification_end();
-    stk::mesh::get_updated_ngp_mesh(get_bulk());
+    get_bulk().get_updated_ngp_mesh();
   }
 
 private:
@@ -133,7 +132,7 @@ protected:
     get_bulk().modification_begin();
     get_bulk().change_ghosting(*ghosting, element_to_ghost(cycle));
     get_bulk().modification_end();
-    stk::mesh::get_updated_ngp_mesh(get_bulk());
+    get_bulk().get_updated_ngp_mesh();
   }
 
 private:
@@ -155,16 +154,16 @@ TEST_F( NgpMeshChangeElementPartMembership, Timing )
 {
   if (get_parallel_size() != 1) return;
 
-  const int NUM_RUNS = 200;
+  const int NUM_RUNS = 100;
 
   stk::performance_tests::Timer timer(get_comm());
   setup_host_mesh();
 
-  timer.start_timing();
   for (int i=0; i<NUM_RUNS; i++) {
+    timer.start_timing();
     change_element_part_membership(i);
+    timer.update_timing();
   }
-  timer.update_timing();
   timer.print_timing(NUM_RUNS);
 }
 

@@ -60,7 +60,6 @@
 #include <Kokkos_ScratchSpace.hpp>
 
 #include <impl/Kokkos_Profiling_Interface.hpp>
-#include <impl/Kokkos_ExecSpaceInitializer.hpp>
 
 #include <hip/hip_runtime_api.h>
 /*--------------------------------------------------------------------------*/
@@ -98,20 +97,6 @@ class HIPSpace {
                   const size_t arg_alloc_size,
                   const size_t arg_logical_size = 0) const;
 
- private:
-  template <class, class, class, class>
-  friend class LogicalMemorySpace;
-  void* impl_allocate(const char* arg_label, const size_t arg_alloc_size,
-                      const size_t arg_logical_size = 0,
-                      const Kokkos::Tools::SpaceHandle =
-                          Kokkos::Tools::make_space_handle(name())) const;
-  void impl_deallocate(const char* arg_label, void* const arg_alloc_ptr,
-                       const size_t arg_alloc_size,
-                       const size_t arg_logical_size = 0,
-                       const Kokkos::Tools::SpaceHandle =
-                           Kokkos::Tools::make_space_handle(name())) const;
-
- public:
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return "HIP"; }
 
@@ -204,20 +189,6 @@ class HIPHostPinnedSpace {
                   const size_t arg_alloc_size,
                   const size_t arg_logical_size = 0) const;
 
- private:
-  template <class, class, class, class>
-  friend class LogicalMemorySpace;
-  void* impl_allocate(const char* arg_label, const size_t arg_alloc_size,
-                      const size_t arg_logical_size = 0,
-                      const Kokkos::Tools::SpaceHandle =
-                          Kokkos::Tools::make_space_handle(name())) const;
-  void impl_deallocate(const char* arg_label, void* const arg_alloc_ptr,
-                       const size_t arg_alloc_size,
-                       const size_t arg_logical_size = 0,
-                       const Kokkos::Tools::SpaceHandle =
-                           Kokkos::Tools::make_space_handle(name())) const;
-
- public:
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return "HIPHostPinned"; }
 
@@ -241,36 +212,36 @@ static_assert(
 
 template <>
 struct MemorySpaceAccess<Kokkos::HostSpace, Kokkos::Experimental::HIPSpace> {
-  enum : bool { assignable = false };
-  enum : bool { accessible = false };
-  enum : bool { deepcopy = true };
+  enum { assignable = false };
+  enum { accessible = false };
+  enum { deepcopy = true };
 };
 
 template <>
 struct MemorySpaceAccess<Kokkos::HostSpace,
                          Kokkos::Experimental::HIPHostPinnedSpace> {
   // HostSpace::execution_space == HIPHostPinnedSpace::execution_space
-  enum : bool { assignable = true };
-  enum : bool { accessible = true };
-  enum : bool { deepcopy = true };
+  enum { assignable = true };
+  enum { accessible = true };
+  enum { deepcopy = true };
 };
 
 //----------------------------------------
 
 template <>
 struct MemorySpaceAccess<Kokkos::Experimental::HIPSpace, Kokkos::HostSpace> {
-  enum : bool { assignable = false };
-  enum : bool { accessible = false };
-  enum : bool { deepcopy = true };
+  enum { assignable = false };
+  enum { accessible = false };
+  enum { deepcopy = true };
 };
 
 template <>
 struct MemorySpaceAccess<Kokkos::Experimental::HIPSpace,
                          Kokkos::Experimental::HIPHostPinnedSpace> {
   // HIPSpace::execution_space != HIPHostPinnedSpace::execution_space
-  enum : bool { assignable = false };
-  enum : bool { accessible = true };  // HIPSpace::execution_space
-  enum : bool { deepcopy = true };
+  enum { assignable = false };
+  enum { accessible = true };  // HIPSpace::execution_space
+  enum { deepcopy = true };
 };
 
 //----------------------------------------
@@ -280,17 +251,17 @@ struct MemorySpaceAccess<Kokkos::Experimental::HIPSpace,
 template <>
 struct MemorySpaceAccess<Kokkos::Experimental::HIPHostPinnedSpace,
                          Kokkos::HostSpace> {
-  enum : bool { assignable = false };  // Cannot access from HIP
-  enum : bool { accessible = true };   // HIPHostPinnedSpace::execution_space
-  enum : bool { deepcopy = true };
+  enum { assignable = false };  // Cannot access from HIP
+  enum { accessible = true };   // HIPHostPinnedSpace::execution_space
+  enum { deepcopy = true };
 };
 
 template <>
 struct MemorySpaceAccess<Kokkos::Experimental::HIPHostPinnedSpace,
                          Kokkos::Experimental::HIPSpace> {
-  enum : bool { assignable = false };  // Cannot access from Host
-  enum : bool { accessible = false };
-  enum : bool { deepcopy = true };
+  enum { assignable = false };  // Cannot access from Host
+  enum { accessible = false };
+  enum { deepcopy = true };
 };
 
 };  // namespace Impl
@@ -487,7 +458,7 @@ namespace Impl {
 template <>
 struct VerifyExecutionCanAccessMemorySpace<Kokkos::Experimental::HIPSpace,
                                            Kokkos::HostSpace> {
-  enum : bool { value = false };
+  enum { value = false };
   KOKKOS_INLINE_FUNCTION static void verify(void) {
     Kokkos::abort("HIP code attempted to access HostSpace memory");
   }
@@ -501,7 +472,7 @@ struct VerifyExecutionCanAccessMemorySpace<Kokkos::Experimental::HIPSpace,
 template <>
 struct VerifyExecutionCanAccessMemorySpace<
     Kokkos::Experimental::HIPSpace, Kokkos::Experimental::HIPHostPinnedSpace> {
-  enum : bool { value = true };
+  enum { value = true };
   KOKKOS_INLINE_FUNCTION static void verify(void) {}
   KOKKOS_INLINE_FUNCTION static void verify(const void*) {}
 };
@@ -513,7 +484,7 @@ struct VerifyExecutionCanAccessMemorySpace<
         !std::is_same<Kokkos::Experimental::HIPSpace, OtherSpace>::value,
         Kokkos::Experimental::HIPSpace>::type,
     OtherSpace> {
-  enum : bool { value = false };
+  enum { value = false };
   KOKKOS_INLINE_FUNCTION static void verify(void) {
     Kokkos::abort("HIP code attempted to access unknown Space memory");
   }
@@ -528,7 +499,7 @@ struct VerifyExecutionCanAccessMemorySpace<
 template <>
 struct VerifyExecutionCanAccessMemorySpace<Kokkos::HostSpace,
                                            Kokkos::Experimental::HIPSpace> {
-  enum : bool { value = false };
+  enum { value = false };
   inline static void verify(void) {
     Kokkos::Experimental::HIPSpace::access_error();
   }
@@ -541,7 +512,7 @@ struct VerifyExecutionCanAccessMemorySpace<Kokkos::HostSpace,
 template <>
 struct VerifyExecutionCanAccessMemorySpace<
     Kokkos::HostSpace, Kokkos::Experimental::HIPHostPinnedSpace> {
-  enum : bool { value = true };
+  enum { value = true };
   KOKKOS_INLINE_FUNCTION static void verify(void) {}
   KOKKOS_INLINE_FUNCTION static void verify(const void*) {}
 };
@@ -565,7 +536,7 @@ class SharedAllocationRecord<Kokkos::Experimental::HIPSpace, void>
 
   static void deallocate(RecordBase*);
 
-#ifdef KOKKOS_ENABLE_DEBUG
+#ifdef KOKKOS_DEBUG
   static RecordBase s_root_record;
 #endif
 
@@ -616,7 +587,7 @@ class SharedAllocationRecord<Kokkos::Experimental::HIPHostPinnedSpace, void>
 
   static void deallocate(RecordBase*);
 
-#ifdef KOKKOS_ENABLE_DEBUG
+#ifdef KOKKOS_DEBUG
   static RecordBase s_root_record;
 #endif
 
@@ -767,20 +738,6 @@ struct DeviceTypeTraits<Kokkos::Experimental::HIP> {
 };
 }  // namespace Experimental
 }  // namespace Tools
-
-namespace Impl {
-
-class HIPSpaceInitializer : public Kokkos::Impl::ExecSpaceInitializerBase {
- public:
-  HIPSpaceInitializer()  = default;
-  ~HIPSpaceInitializer() = default;
-  void initialize(const InitArguments& args) final;
-  void finalize(const bool) final;
-  void fence() final;
-  void print_configuration(std::ostream& msg, const bool detail) final;
-};
-
-}  // namespace Impl
 }  // namespace Kokkos
 
 namespace Kokkos {
@@ -789,16 +746,16 @@ namespace Impl {
 template <>
 struct MemorySpaceAccess<Kokkos::Experimental::HIPSpace,
                          Kokkos::Experimental::HIP::scratch_memory_space> {
-  enum : bool { assignable = false };
-  enum : bool { accessible = true };
-  enum : bool { deepcopy = false };
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy = false };
 };
 
 template <>
 struct VerifyExecutionCanAccessMemorySpace<
     Kokkos::Experimental::HIP::memory_space,
     Kokkos::Experimental::HIP::scratch_memory_space> {
-  enum : bool { value = true };
+  enum { value = true };
   KOKKOS_INLINE_FUNCTION static void verify(void) {}
   KOKKOS_INLINE_FUNCTION static void verify(const void*) {}
 };
@@ -806,7 +763,7 @@ struct VerifyExecutionCanAccessMemorySpace<
 template <>
 struct VerifyExecutionCanAccessMemorySpace<
     Kokkos::HostSpace, Kokkos::Experimental::HIP::scratch_memory_space> {
-  enum : bool { value = false };
+  enum { value = false };
   inline static void verify(void) {
     Kokkos::Experimental::HIPSpace::access_error();
   }

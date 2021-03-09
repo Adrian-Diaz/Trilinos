@@ -35,7 +35,7 @@
 #include "stk_mesh/base/BulkData.hpp"          // for BulkData, etc
 #include "stk_mesh/base/CoordinateSystems.hpp" // for Cartesian2d, etc.
 #include "stk_mesh/base/FEMHelpers.hpp"        // for declare_element
-#include "stk_mesh/base/GetEntities.hpp"
+#include "stk_mesh/base/GetEntities.hpp"       // for get_selected_entities, etc.
 #include "stk_mesh/base/MetaData.hpp"          // for MetaData, entity_rank_names, etc
 #include "stk_mesh/base/Part.hpp"              // for Part
 #include "stk_mesh/base/Relation.hpp"
@@ -399,8 +399,7 @@ public:
       ScalarDoubleField & scalarDoubleSourceField = static_cast<ScalarDoubleField&>(*metaA->get_field(field_rank, prefix + " Scalar Double Field"));
       VectorDoubleField & vectorDoubleSourceField = static_cast<VectorDoubleField&>(*metaA->get_field(field_rank, prefix + " Vector Double Field"));
       std::vector<stk::mesh::Entity> sourceNodes;
-      const bool sortById = true;
-      stk::mesh::get_entities(*meshA, field_rank, metaA->locally_owned_part(), sourceNodes, sortById);
+      stk::mesh::get_selected_entities(metaA->locally_owned_part(), meshA->buckets(field_rank), sourceNodes);
       std::vector<stk::mesh::FieldBase*> sourceFields;
       sourceFields.push_back(&scalarIntSourceField);
       sourceFields.push_back(&scalarDoubleSourceField);
@@ -419,7 +418,7 @@ public:
       vectorDoubleTargetField = static_cast<VectorDoubleField*>(metaB->get_field(field_rank, prefix + " Vector Double Field"));
 
       std::vector<stk::mesh::Entity> targetNodes;
-      stk::mesh::get_entities(*meshB, field_rank, metaB->locally_owned_part(), targetNodes);
+      stk::mesh::get_selected_entities(metaB->locally_owned_part(), meshB->buckets(field_rank), targetNodes);
       std::vector<stk::mesh::FieldBase*> targetFields;
       targetFields.push_back(scalarIntTargetField);
       targetFields.push_back(scalarDoubleTargetField);
@@ -1195,15 +1194,14 @@ TEST(Transfer, copy001T011Shell)
     stk::mesh::Part & shell_part = *metaA.get_part("shell_part");
 
     std::vector<stk::mesh::Entity> sourceShells;
-    const bool sortById = true;
-    stk::mesh::get_entities(meshA, stk::topology::ELEM_RANK,
-                            metaA.locally_owned_part() & shell_part,
-                            sourceShells, sortById);
+    stk::mesh::get_selected_entities(metaA.locally_owned_part() & shell_part,
+                                     meshA.buckets(stk::topology::ELEM_RANK),
+                                     sourceShells);
 
     std::vector<stk::mesh::Entity> targetShells;
-    stk::mesh::get_entities(meshB, stk::topology::ELEM_RANK,
-                            metaB.locally_owned_part() & shell_part,
-                            targetShells, sortById);
+    stk::mesh::get_selected_entities(metaB.locally_owned_part() & shell_part,
+                                     meshB.buckets(stk::topology::ELEM_RANK),
+                                     targetShells);
 
     std::vector<stk::mesh::FieldBase*> sourceFields;
     sourceFields.push_back(&scalarSourceIntField);
@@ -1665,10 +1663,9 @@ TEST(Transfer, copy0T_)
     // Set up the transfer
     //
     std::vector<stk::mesh::Entity> sourceNodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(meshA, stk::topology::NODE_RANK, metaA.locally_owned_part(), sourceNodes, sortById);
+    stk::mesh::get_selected_entities(metaA.locally_owned_part(), meshA.buckets(stk::topology::NODE_RANK), sourceNodes);
     std::vector<stk::mesh::Entity> targetNodes;
-    stk::mesh::get_entities(meshB, stk::topology::NODE_RANK, metaB.locally_owned_part(), targetNodes, sortById);
+    stk::mesh::get_selected_entities(metaB.locally_owned_part(), meshB.buckets(stk::topology::NODE_RANK), targetNodes);
 
     std::vector<stk::mesh::FieldBase*> sourceFields;
     sourceFields.push_back(&scalarSourceIntField);
@@ -1788,10 +1785,9 @@ TEST(Transfer, copy_T0)
     // Set up the transfer
     //
     std::vector<stk::mesh::Entity> sourceNodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(meshA, stk::topology::NODE_RANK, metaA.locally_owned_part(), sourceNodes, sortById);
+    stk::mesh::get_selected_entities(metaA.locally_owned_part(), meshA.buckets(stk::topology::NODE_RANK), sourceNodes);
     std::vector<stk::mesh::Entity> targetNodes;
-    stk::mesh::get_entities(meshB, stk::topology::NODE_RANK, metaB.locally_owned_part(), targetNodes, sortById);
+    stk::mesh::get_selected_entities(metaB.locally_owned_part(), meshB.buckets(stk::topology::NODE_RANK), targetNodes);
 
     std::vector<stk::mesh::FieldBase*> sourceFields;
     sourceFields.push_back(&scalarSourceIntField);
@@ -1905,10 +1901,9 @@ TEST(Transfer, copy00_T_11)
     // Set up the transfer
     //
     std::vector<stk::mesh::Entity> sourceNodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(meshA, stk::topology::NODE_RANK, metaA.locally_owned_part(), sourceNodes, sortById);
+    stk::mesh::get_selected_entities(metaA.locally_owned_part(), meshA.buckets(stk::topology::NODE_RANK), sourceNodes);
     std::vector<stk::mesh::Entity> targetNodes;
-    stk::mesh::get_entities(meshB, stk::topology::NODE_RANK, metaB.locally_owned_part(), targetNodes, sortById);
+    stk::mesh::get_selected_entities(metaB.locally_owned_part(), meshB.buckets(stk::topology::NODE_RANK), targetNodes);
 
     std::vector<stk::mesh::FieldBase*> sourceFields;
     sourceFields.push_back(&scalarSourceIntField);
@@ -2062,10 +2057,9 @@ TEST(Transfer, copy00___T___11)
     // Set up the transfer
     //
     std::vector<stk::mesh::Entity> sourceNodes;
-    const bool sortById = true;
-    stk::mesh::get_entities(meshA, stk::topology::NODE_RANK, metaA.locally_owned_part(), sourceNodes, sortById);
+    stk::mesh::get_selected_entities(metaA.locally_owned_part(), meshA.buckets(stk::topology::NODE_RANK), sourceNodes);
     std::vector<stk::mesh::Entity> targetNodes;
-    stk::mesh::get_entities(meshB, stk::topology::NODE_RANK, metaB.locally_owned_part(), targetNodes, sortById);
+    stk::mesh::get_selected_entities(metaB.locally_owned_part(), meshB.buckets(stk::topology::NODE_RANK), targetNodes);
 
     std::vector<stk::mesh::FieldBase*> sourceFields;
     sourceFields.push_back(&scalarSourceIntField);
@@ -2292,9 +2286,9 @@ TEST(Transfer, mismatchedFieldDataTypeCopyTransfer)
 
   // Set up CopyTransfer
   stk::mesh::EntityVector entitiesA;
-  const bool sortById = true;
-  stk::mesh::get_entities(bulkA, stk::topology::NODE_RANK, metaA.locally_owned_part(),
-                          entitiesA, sortById);
+  stk::mesh::get_selected_entities(metaA.locally_owned_part(),
+                                   bulkA.buckets(stk::topology::NODE_RANK),
+                                   entitiesA);
   std::vector<stk::mesh::FieldBase*> fieldsA;
   fieldsA.push_back(fieldBaseA);
   stk::transfer::TransferCopyByIdStkMeshAdapter transferMeshA(bulkA,entitiesA,fieldsA);
@@ -2305,8 +2299,9 @@ TEST(Transfer, mismatchedFieldDataTypeCopyTransfer)
   }
 
   stk::mesh::EntityVector entitiesB;
-  stk::mesh::get_entities(bulkB, stk::topology::NODE_RANK, metaB.locally_owned_part(),
-                          entitiesB, sortById);
+  stk::mesh::get_selected_entities(metaB.locally_owned_part(),
+                                   bulkB.buckets(stk::topology::NODE_RANK),
+                                   entitiesB);
   std::vector<stk::mesh::FieldBase*> fieldsB;
   fieldsB.push_back(fieldBaseB);
   stk::transfer::TransferCopyByIdStkMeshAdapter transferMeshB(bulkB,entitiesB,fieldsB);

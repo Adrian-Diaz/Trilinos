@@ -63,14 +63,14 @@ namespace panzer
    *
    * \param[in] mesh_info Mesh info object
    * \param[in] description Description of workset
-   * \param[in] orientations Orientations object for correcting basis information
+   * \param[in] needs Requirements for workset
    *
    * \returns vector of worksets for the corresponding element block.
    */
   Teuchos::RCP<std::vector<panzer::Workset> >
   buildPartitionedWorksets(const panzer::LocalMeshInfo & mesh_info,
                            const panzer::WorksetDescriptor & description,
-                           const Teuchos::RCP<const OrientationsInterface> & orientations = Teuchos::null);
+                           const panzer::WorksetNeeds & needs);
 
 }
 

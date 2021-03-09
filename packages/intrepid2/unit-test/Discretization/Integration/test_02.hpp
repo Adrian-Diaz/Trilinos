@@ -78,7 +78,7 @@ namespace Intrepid2 {
       *outStream << "-------------------------------------------------------------------------------" << "\n\n"; \
     };  
 
-    template<typename ValueType, typename DeviceType>
+    template<typename ValueType, typename DeviceSpaceType>
     int Integration_Test02(const bool verbose) {
 
       Teuchos::RCP<std::ostream> outStream;
@@ -92,7 +92,6 @@ namespace Intrepid2 {
       Teuchos::oblackholestream oldFormatState;
       oldFormatState.copyfmt(std::cout);
 
-      using DeviceSpaceType = typename DeviceType::execution_space;
       typedef typename
         Kokkos::Impl::is_space<DeviceSpaceType>::host_mirror_space::execution_space HostSpaceType ;
 
@@ -117,13 +116,12 @@ namespace Intrepid2 {
         << "| TEST 1: integrals of monomials in 1D                                        |\n"
         << "===============================================================================\n";
 
-      typedef Kokkos::DynRankView<ValueType,DeviceType> DynRankView;
-      typedef Kokkos::DynRankView<ValueType,Kokkos::HostSpace> DynRankViewHost;
+      typedef Kokkos::DynRankView<ValueType,DeviceSpaceType> DynRankView;
 #define ConstructWithLabel(obj, ...) obj(#obj, __VA_ARGS__)
 
       typedef ValueType pointValueType;
       typedef ValueType weightValueType;
-      typedef CubatureDirectLineGauss<DeviceType,pointValueType,weightValueType> CubatureLineType;
+      typedef CubatureDirectLineGauss<DeviceSpaceType,pointValueType,weightValueType> CubatureLineType;
 
       const auto tol = 10.0 * tolerence();
 
@@ -146,10 +144,10 @@ namespace Intrepid2 {
         const auto polySize = maxDeg + 1;
 
         // test inegral values
-        DynRankViewHost ConstructWithLabel(testInt, maxDeg+1, polySize);
+        DynRankView ConstructWithLabel(testInt, maxDeg+1, polySize);
         
         // analytic integral values
-        DynRankViewHost ConstructWithLabel(analyticInt, maxDeg+1, polySize);
+        DynRankView ConstructWithLabel(analyticInt, maxDeg+1, polySize);
         
         // storage for cubatrue points and weights
         DynRankView ConstructWithLabel(cubPoints, 
