@@ -65,12 +65,12 @@ TEUCHOS_UNIT_TEST(BDF2, ParameterList)
   // Test constructor IntegratorBasic(tempusPL, model)
   {
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>(tempusPL, model);
+      Tempus::createIntegratorBasic<double>(tempusPL, model);
 
     RCP<ParameterList> stepperPL = sublist(tempusPL, "Default Stepper", true);
     RCP<const ParameterList> defaultPL =
       integrator->getStepper()->getValidParameters();
-    bool pass = haveSameValues(*stepperPL, *defaultPL, true);
+    bool pass = haveSameValuesSorted(*stepperPL, *defaultPL, true);
     if (!pass) {
       std::cout << std::endl;
       std::cout << "stepperPL -------------- \n" << *stepperPL << std::endl;
@@ -82,13 +82,13 @@ TEUCHOS_UNIT_TEST(BDF2, ParameterList)
   // Test constructor IntegratorBasic(model, stepperType)
   {
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>(model, "BDF2");
+      Tempus::createIntegratorBasic<double>(model, "BDF2");
 
     RCP<ParameterList> stepperPL = sublist(tempusPL, "Default Stepper", true);
     RCP<const ParameterList> defaultPL =
       integrator->getStepper()->getValidParameters();
 
-    bool pass = haveSameValues(*stepperPL, *defaultPL, true);
+    bool pass = haveSameValuesSorted(*stepperPL, *defaultPL, true);
     if (!pass) {
       std::cout << std::endl;
       std::cout << "stepperPL -------------- \n" << *stepperPL << std::endl;
@@ -133,7 +133,6 @@ TEUCHOS_UNIT_TEST(BDF2, ConstructingFromDefaults)
     auto timeStepControl = rcp(new Tempus::TimeStepControl<double>());
     ParameterList tscPL = pl->sublist("Default Integrator")
                              .sublist("Time Step Control");
-    timeStepControl->setStepType (tscPL.get<std::string>("Integrator Step Type"));
     timeStepControl->setInitIndex(tscPL.get<int>   ("Initial Time Index"));
     timeStepControl->setInitTime (tscPL.get<double>("Initial Time"));
     timeStepControl->setFinalTime(tscPL.get<double>("Final Time"));
@@ -141,8 +140,7 @@ TEUCHOS_UNIT_TEST(BDF2, ConstructingFromDefaults)
     timeStepControl->initialize();
 
     // Setup initial condition SolutionState --------------------
-    Thyra::ModelEvaluatorBase::InArgs<double> inArgsIC =
-      stepper->getModel()->getNominalValues();
+    auto inArgsIC = model->getNominalValues();
     auto icSolution = rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x());
     auto icState = Tempus::createSolutionStateX(icSolution);
     icState->setTime    (timeStepControl->getInitTime());
@@ -158,10 +156,13 @@ TEUCHOS_UNIT_TEST(BDF2, ConstructingFromDefaults)
     solutionHistory->setStorageLimit(3);
     solutionHistory->addState(icState);
 
+    // Ensure ICs are consistent and stepper memory is set (e.g., xDot is set).
+    stepper->setInitialConditions(solutionHistory);
+
     // Setup Integrator -----------------------------------------
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>();
-    integrator->setStepperWStepper(stepper);
+      Tempus::createIntegratorBasic<double>();
+    integrator->setStepper(stepper);
     integrator->setTimeStepControl(timeStepControl);
     integrator->setSolutionHistory(solutionHistory);
     //integrator->setObserver(...);
@@ -217,35 +218,33 @@ TEUCHOS_UNIT_TEST(BDF2, SinCos)
   // Read params from .xml file
   RCP<ParameterList> pList = getParametersFromXmlFile("Tempus_BDF2_SinCos.xml");
   //Set initial time step = 2*dt specified in input file (for convergence study)
-  //
-  RCP<ParameterList> pl = sublist(pList, "Tempus", true);
-  double dt = pl->sublist("Default Integrator")
-       .sublist("Time Step Control").get<double>("Initial Time Step");
+  double dt = pList->sublist("Tempus")
+             .sublist("Default Integrator")
+             .sublist("Time Step Control").get<double>("Initial Time Step");
   dt *= 2.0;
 
   // Setup the SinCosModel
   RCP<ParameterList> scm_pl = sublist(pList, "SinCosModel", true);
   const int nTimeStepSizes = scm_pl->get<int>("Number of Time Step Sizes", 7);
   std::string output_file_string =
-                    scm_pl->get<std::string>("Output File Name", "Tempus_BDF2_SinCos");
+    scm_pl->get<std::string>("Output File Name", "Tempus_BDF2_SinCos");
   std::string output_file_name = output_file_string + ".dat";
   std::string ref_out_file_name = output_file_string + "-Ref.dat";
   std::string err_out_file_name = output_file_string + "-Error.dat";
   double time = 0.0;
   for (int n=0; n<nTimeStepSizes; n++) {
 
-    //std::ofstream ftmp("PL.txt");
-    //pList->print(ftmp);
-    //ftmp.close();
-
     auto model = rcp(new SinCosModel<double>(scm_pl));
 
     dt /= 2;
 
     // Setup the Integrator and reset initial time step
+    RCP<ParameterList> tempusPL =
+      getParametersFromXmlFile("Tempus_BDF2_SinCos.xml");
+    RCP<ParameterList> pl = sublist(tempusPL, "Tempus", true);
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Initial Conditions
     // During the Integrator construction, the initial SolutionState
@@ -261,7 +260,7 @@ TEUCHOS_UNIT_TEST(BDF2, SinCos)
 
     // Test if at 'Final Time'
     time = integrator->getTime();
-    double timeFinal =pl->sublist("Default Integrator")
+    double timeFinal = pl->sublist("Default Integrator")
        .sublist("Time Step Control").get<double>("Final Time");
     TEST_FLOATING_EQUALITY(time, timeFinal, 1.0e-14);
 
@@ -342,8 +341,9 @@ TEUCHOS_UNIT_TEST(BDF2, SinCosAdapt)
     getParametersFromXmlFile("Tempus_BDF2_SinCos_AdaptDt.xml");
   //Set initial time step = 2*dt specified in input file (for convergence study)
   RCP<ParameterList> pl = sublist(pList, "Tempus", true);
-  double dt = pl->sublist("Default Integrator")
-       .sublist("Time Step Control").get<double>("Initial Time Step");
+  double dt = pList->sublist("Tempus")
+             .sublist("Default Integrator")
+             .sublist("Time Step Control").get<double>("Initial Time Step");
   dt *= 2.0;
 
   // Setup the SinCosModel
@@ -356,13 +356,13 @@ TEUCHOS_UNIT_TEST(BDF2, SinCosAdapt)
   double time = 0.0;
   for (int n=0; n<nTimeStepSizes; n++) {
 
-    //std::ofstream ftmp("PL.txt");
-    //pList->print(ftmp);
-    //ftmp.close();
-
     auto model = rcp(new SinCosModel<double>(scm_pl));
 
     dt /= 2;
+
+    RCP<ParameterList> tempusPL =
+      getParametersFromXmlFile("Tempus_BDF2_SinCos_AdaptDt.xml");
+    RCP<ParameterList> pl = sublist(tempusPL, "Tempus", true);
 
     // Setup the Integrator and reset initial time step
     pl->sublist("Default Integrator")
@@ -378,9 +378,8 @@ TEUCHOS_UNIT_TEST(BDF2, SinCosAdapt)
     pl->sublist("Default Integrator")
        .sublist("Time Step Control")
        .sublist("Time Step Control Strategy")
-       .sublist("basic_vs")
        .set("Minimum Value Monitoring Function", dt*0.99);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Initial Conditions
     // During the Integrator construction, the initial SolutionState
@@ -466,8 +465,8 @@ TEUCHOS_UNIT_TEST(BDF2, SinCosAdapt)
                     solutions,    xErrorNorm,    xSlope,
                     solutionsDot, xDotErrorNorm, xDotSlope);
 
-    TEST_FLOATING_EQUALITY( xSlope,               1.96126, 0.01 );
-    TEST_FLOATING_EQUALITY( xDotSlope,            1.96126, 0.01 );
+    TEST_FLOATING_EQUALITY( xSlope,                 1.932, 0.01 );
+    TEST_FLOATING_EQUALITY( xDotSlope,              1.932, 0.01 );
     TEST_FLOATING_EQUALITY( xErrorNorm[0],    0.000192591, 1.0e-4 );
     TEST_FLOATING_EQUALITY( xDotErrorNorm[0], 0.000192591, 1.0e-4 );
   }
@@ -541,7 +540,7 @@ TEUCHOS_UNIT_TEST(BDF2, CDR)
     // Setup the Integrator and reset initial time step
     pl->sublist("Demo Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -675,7 +674,7 @@ TEUCHOS_UNIT_TEST(BDF2, VanDerPol)
     pl->sublist("Demo Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>(pl, model);
+      Tempus::createIntegratorBasic<double>(pl, model);
     order = integrator->getStepper()->getOrder();
 
     // Integrate to timeMax
@@ -697,7 +696,7 @@ TEUCHOS_UNIT_TEST(BDF2, VanDerPol)
 
     // Output finest temporal solution for plotting
     // This only works for ONE MPI process
-    if ((n == 0) or (n == nTimeStepSizes-1)) {
+    if ((n == 0) || (n == nTimeStepSizes-1)) {
       std::string fname = "Tempus_BDF2_VanDerPol-Ref.dat";
       if (n == 0) fname = "Tempus_BDF2_VanDerPol.dat";
       std::ofstream ftmp(fname);

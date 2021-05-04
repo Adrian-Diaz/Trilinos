@@ -66,8 +66,8 @@
 #include "ROL_Thyra_BoundConstraint.hpp"
 #include "ROL_ThyraME_Objective.hpp"
 #include "ROL_ThyraProductME_Objective.hpp"
-#include "ROL_ThyraProductME_Objective_SimOpt.hpp"
-#include "ROL_ThyraProductME_Constraint_SimOpt.hpp"
+#include "Piro_ThyraProductME_Objective_SimOpt.hpp"
+#include "Piro_ThyraProductME_Constraint_SimOpt.hpp"
 #include "ROL_LineSearchStep.hpp"
 #include "ROL_TrustRegionStep.hpp"
 #include "ROL_Algorithm.hpp"
@@ -78,8 +78,16 @@
 #include "Thyra_VectorDefaultBase.hpp"
 #include "Thyra_DefaultProductVectorSpace.hpp"
 #include "Thyra_DefaultProductVector.hpp"
+#include "Thyra_DefaultBlockedLinearOp.hpp"
 #endif
 
+#ifdef HAVE_PIRO_TEKO
+#include "Teko_InverseLibrary.hpp"
+#include "Teko_PreconditionerFactory.hpp"
+#ifdef HAVE_PIRO_ROL
+#include "ROL_HessianScaledThyraVector.hpp"
+#endif
+#endif
 
 using std::cout; using std::endl; using std::string;
 using Teuchos::RCP; using Teuchos::rcp; using Teuchos::ParameterList;
@@ -88,10 +96,12 @@ using Teuchos::null; using Teuchos::outArg;
 int
 Piro::PerformAnalysis(
     Thyra::ModelEvaluatorDefaultBase<double>& piroModel,
-    Teuchos::ParameterList& analysisParams,
-    RCP< Thyra::VectorBase<double> >& result)
+    Teuchos::ParameterList& appParams,
+    RCP< Thyra::VectorBase<double> >& result,
+    RCP< Piro::ROL_ObserverBase<double> > observer)
 {
 
+  auto analysisParams = appParams.sublist("Analysis");
   analysisParams.validateParameters(*Piro::getValidPiroAnalysisParameters(),0);
 
   int status;
@@ -119,7 +129,7 @@ Piro::PerformAnalysis(
   else if (analysis == "ROL") {
     *out << "Piro PerformAnalysis: ROL Optimization Being Performed " << endl;
     status = Piro::PerformROLAnalysis(piroModel,
-                          analysisParams, result);
+                          appParams, result, observer);
 
   }
 #endif
@@ -207,9 +217,11 @@ Piro::PerformDakotaAnalysis(
 int
 Piro::PerformROLAnalysis(
     Thyra::ModelEvaluatorDefaultBase<double>& piroModel,
-    Teuchos::ParameterList& analysisParams,
-    RCP< Thyra::VectorBase<double> >& p)
+    Teuchos::ParameterList& appParams,
+    RCP< Thyra::VectorBase<double> >& p,
+    RCP< Piro::ROL_ObserverBase<double> > observer)
 {
+  auto analysisParams = appParams.sublist("Analysis");
   auto rolParams = analysisParams.sublist("ROL");
 
 #ifdef HAVE_PIRO_ROL
@@ -243,7 +255,7 @@ Piro::PerformROLAnalysis(
   RCP<Teuchos::FancyOStream> out = Teuchos::VerboseObjectBase::getDefaultOStream();
   int g_index = rolParams.get<int>("Response Vector Index", 0);
 
-  int num_parameters = rolParams.get<int>("Number of Parameters", 1);
+  int num_parameters = rolParams.get<int>("Number Of Parameters", 1);
   std::vector<int> p_indices(num_parameters);
   std::vector<std::string> p_names;
 
@@ -256,9 +268,9 @@ Piro::PerformROLAnalysis(
     }
   }
 
-  auto opt_paramList = Teuchos::rcp(&analysisParams.sublist("Optimization Status"),false);
-  if(analysisParams.isParameter("Enable Explicit Matrix Transpose")) {
-    opt_paramList->set("Enable Explicit Matrix Transpose", analysisParams.get<bool>("Enable Explicit Matrix Transpose"));
+  RCP<Teuchos::ParameterList> opt_paramList = Teuchos::rcp(&appParams.sublist("Optimization Status"),false);
+  if(appParams.isParameter("Enable Explicit Matrix Transpose")) {
+    opt_paramList->set("Enable Explicit Matrix Transpose", appParams.get<bool>("Enable Explicit Matrix Transpose"));
   }
   opt_paramList->set("Parameter Names", Teuchos::rcpFromRef(p_names));
 
@@ -290,8 +302,8 @@ Piro::PerformROLAnalysis(
   Teuchos::RCP<Thyra::VectorBase<double>> lambda_vec = Thyra::createMember(x_space);
   ROL::ThyraVector<double> rol_lambda(lambda_vec);
 
-  ROL::ThyraProductME_Objective_SimOpt<double> obj(*model, g_index, p_indices, opt_paramList, verbosityLevel);
-  ROL::ThyraProductME_Constraint_SimOpt<double> constr(*model, g_index, p_indices, opt_paramList, verbosityLevel);
+  Piro::ThyraProductME_Objective_SimOpt<double> obj(*model, g_index, p_indices, opt_paramList, verbosityLevel, observer);
+  Piro::ThyraProductME_Constraint_SimOpt<double> constr(*model, g_index, p_indices, opt_paramList, verbosityLevel, observer);
 
   constr.setSolveParameters(rolParams.sublist("ROL Options"));
 
@@ -484,6 +496,8 @@ Piro::PerformROLAnalysis(
   }
 
   bool useFullSpace = rolParams.get("Full Space",false);
+  bool useHessianDotProduct = rolParams.get("Hessian Dot Product",false);
+  bool removeMeanOfTheRHS = rolParams.get("Remove Mean Of The Right-hand Side",false);
 
   *out << "\nROL options:" << std::endl;
   rolParams.sublist("ROL Options").print(*out);
@@ -497,18 +511,71 @@ Piro::PerformROLAnalysis(
   else
     step = ROL::makePtr<ROL::TrustRegionStep<double>>(rolParams.sublist("ROL Options"));
   ROL::Ptr<ROL::Algorithm<double> > algo;
-  algo = ROL::makePtr<ROL::Algorithm<double>>(step, status,false);
+  algo = ROL::makePtr<ROL::Algorithm<double>>(step, status, true);
+
+#ifdef HAVE_PIRO_TEKO
+  Teko::LinearOp H, invH;
+  if (useHessianDotProduct) {
+    *out << "\nStart the computation of H_pp" << std::endl;
+    Teko::BlockedLinearOp bH = Teko::createBlockedOp();
+    obj.hessian_22(bH, rol_x, rol_p);
+    *out << "End of the computation of H_pp" << std::endl;
+
+    int numBlocks = bH->productRange()->numBlocks();
+
+    Teuchos::ParameterList defaultParamList;
+    string defaultSolverType = "Belos";
+    defaultParamList.set("Linear Solver Type", "Belos");
+    Teuchos::ParameterList& belosList = defaultParamList.sublist("Linear Solver Types").sublist("Belos");
+    belosList.set("Solver Type", "Pseudo Block CG");
+    belosList.sublist("Solver Types").sublist("Pseudo Block CG").set<int>("Maximum Iterations", 1000);
+    belosList.sublist("Solver Types").sublist("Pseudo Block CG").set<double>("Convergence Tolerance", 1e-4);
+    belosList.sublist("Solver Types").sublist("Pseudo Block CG").set<int>("Num Blocks", 1000);
+    belosList.sublist("Solver Types").sublist("Pseudo Block CG").set("Verbosity", 0x7f);
+    belosList.sublist("Solver Types").sublist("Pseudo Block CG").set("Output Frequency", 100);
+    belosList.sublist("VerboseObject").set("Verbosity Level", "medium");
+    defaultParamList.set("Preconditioner Type", "None");
+
+    Teuchos::ParameterList dHess;
+    if(rolParams.isSublist("Hessian Diagonal Inverse"))
+      dHess = rolParams.sublist("Hessian Diagonal Inverse");
+
+    std::vector<Teko::LinearOp> diag(numBlocks);
+
+    for (int i=0; i<numBlocks; ++i) {
+      string blockName = "Block "+std::to_string(i);
+      string blockSolverType = "Block solver type "+std::to_string(i);
+      Teuchos::ParameterList pl;
+      if(dHess.isSublist(blockName))
+        pl = dHess.sublist(blockName);
+      else
+        pl = defaultParamList;
+      string solverType = dHess.get<string>(blockSolverType, defaultSolverType);
+      diag[i] = Teko::buildInverse(*Teko::invFactoryFromParamList(pl, solverType), Teko::getBlock(i, i, bH));
+    }
+
+    H = Teko::toLinearOp(bH);
+    invH = Teko::createBlockUpperTriInverseOp(bH, diag);
+  }
+  else {
+    H = Teuchos::null;
+    invH = Teuchos::null;
+  }
+#endif
+
 
   //this is for testing the PrimalScaledThyraVector. At the moment the scaling is set to 1, so it is not changing the dot product
-  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
   Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_x = x->clone_v();
-  ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
   ::Thyra::put_scalar<double>( 1.0, scaling_vector_x.ptr());
-  //::Thyra::randomize<double>( 0.5, 2.0, scaling_vector_p.ptr());
   //::Thyra::randomize<double>( 0.5, 2.0, scaling_vector_x.ptr());
   ROL::PrimalScaledThyraVector<double> rol_x_primal(x, scaling_vector_x);
+#ifdef HAVE_PIRO_TEKO
+  ROL::PrimalHessianScaledThyraVector<double> rol_p_primal(p, H, invH, removeMeanOfTheRHS);
+#else
+  Teuchos::RCP<Thyra::VectorBase<double> > scaling_vector_p = p->clone_v();
+  ::Thyra::put_scalar<double>( 1.0, scaling_vector_p.ptr());
   ROL::PrimalScaledThyraVector<double> rol_p_primal(p, scaling_vector_p);
-
+#endif
   // Run Algorithm
   std::vector<std::string> output;
   Teuchos::RCP<ROL::BoundConstraint<double> > boundConstraint;

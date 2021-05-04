@@ -46,6 +46,15 @@
 namespace stk {
 namespace mesh {
 
+inline void require_ngp_mesh_rank_limit(const stk::mesh::MetaData& meta)
+{
+  const size_t maxNumRanks = stk::topology::NUM_RANKS;
+  const size_t numRanks = meta.entity_rank_count();
+  ThrowRequireMsg(numRanks <= maxNumRanks,
+                "stk::mesh::NgpMesh: too many entity ranks ("<<numRanks
+                <<"). Required to be less-or-equal stk::topology::NUM_RANKS");
+}
+
 inline stk::NgpVector<unsigned> get_bucket_ids(const stk::mesh::BulkData &bulk,
                                                stk::mesh::EntityRank rank,
                                                const stk::mesh::Selector &selector)
@@ -58,45 +67,11 @@ inline stk::NgpVector<unsigned> get_bucket_ids(const stk::mesh::BulkData &bulk,
   return bucketIds;
 }
 
-inline stk::NgpVector<unsigned> get_bucket_sizes(const stk::mesh::BulkData &bulk,
-                                                 stk::mesh::EntityRank rank,
-                                                 const stk::mesh::Selector &selector)
-{
-  const stk::mesh::BucketVector &buckets = bulk.get_buckets(rank, selector);
-  stk::NgpVector<unsigned> bucketSizes(buckets.size());
-  for (size_t i = 0; i < buckets.size(); ++i) {
-    bucketSizes[i] = buckets[i]->size();
-  }
-  bucketSizes.copy_host_to_device();
-  return bucketSizes;
-}
-
-inline stk::NgpVector<unsigned> get_num_components_per_entity(const stk::mesh::BulkData &bulk,
-                                                              const stk::mesh::FieldBase & field,
-                                                              const stk::mesh::Selector &selector)
-{
-  const stk::mesh::BucketVector &buckets = bulk.get_buckets(field.entity_rank(), selector);
-  stk::NgpVector<unsigned> numComponentsPerEntity(buckets.size());
-  for (size_t i = 0; i < buckets.size(); ++i) {
-    numComponentsPerEntity[i] = stk::mesh::field_scalars_per_entity(field, *buckets[i]);
-  }
-  numComponentsPerEntity.copy_host_to_device();
-  return numComponentsPerEntity;
-}
-
-inline size_t get_max_ngp_field_allocation_bytes(const MetaData & meta) {
-  const FieldVector & fields = meta.get_fields();
-  return std::accumulate(fields.begin(), fields.end(), 0u, [](size_t maxFieldDataBytes, const FieldBase * field) {
-    return std::max(maxFieldDataBytes, get_total_ngp_field_allocation_bytes(*field));
-  });
-}
-
-
 template <typename ViewType>
 void transpose_contiguous_device_data_into_buffer(unsigned numEntitiesInBlock, unsigned numPerEntity,
                                                   ViewType & deviceView, ViewType & bufferView)
 {
-  Kokkos::parallel_for(numEntitiesInBlock,
+  Kokkos::parallel_for("transpose_contiguous_device_data_into_buffer", numEntitiesInBlock,
     KOKKOS_LAMBDA(const int& entityIdx) {
       for (unsigned i = 0; i < numPerEntity; i++) {
         bufferView(entityIdx, i) = deviceView(ORDER_INDICES(entityIdx, i));
@@ -109,7 +84,7 @@ template <typename ViewType>
 void transpose_buffer_into_contiguous_device_data(unsigned numEntitiesInBlock, unsigned numPerEntity,
                                                   ViewType & bufferView, ViewType & deviceView)
 {
-  Kokkos::parallel_for(numEntitiesInBlock,
+  Kokkos::parallel_for("transpose_buffer_into_contiguous_device_data", numEntitiesInBlock,
     KOKKOS_LAMBDA(const int& entityIdx) {
       for (unsigned i = 0; i < numPerEntity; i++) {
         deviceView(ORDER_INDICES(entityIdx, i)) = bufferView(entityIdx, i);
@@ -118,24 +93,23 @@ void transpose_buffer_into_contiguous_device_data(unsigned numEntitiesInBlock, u
   );
 }
 
-template <typename DeviceViewType, typename BufferViewType>
+template <typename DeviceViewType, typename BufferViewType, typename DeviceUnsignedViewType>
 void transpose_all_device_data_into_buffer(const stk::mesh::FieldBase & stkField,
                                            DeviceViewType & deviceView,
-                                           BufferViewType & bufferView)
+                                           BufferViewType & bufferView,
+                                           DeviceUnsignedViewType & bucketSizes,
+                                           DeviceUnsignedViewType & fieldBucketNumComponentsPerEntity)
 {
     stk::mesh::Selector selector = stk::mesh::selectField(stkField);
-    stk::NgpVector<unsigned> bucketSizes = get_bucket_sizes(stkField.get_mesh(), stkField.entity_rank(), selector);
-    stk::NgpVector<unsigned> bucketNumComponentsPerEntity = stk::mesh::get_num_components_per_entity(stkField.get_mesh(),
-                                                                                                     stkField, selector);
-    size_t numBuckets = bucketSizes.size();
+    size_t numBuckets = bucketSizes.extent(0);
 
     typedef Kokkos::TeamPolicy<stk::mesh::ExecSpace, stk::mesh::ScheduleType>::member_type TeamHandleType;
     const auto& teamPolicy = Kokkos::TeamPolicy<stk::mesh::ExecSpace>(numBuckets, Kokkos::AUTO);
-    Kokkos::parallel_for(teamPolicy,
+    Kokkos::parallel_for("transpose_all_device_data_into_buffer", teamPolicy,
                          KOKKOS_LAMBDA(const TeamHandleType & team) {
                            const unsigned bucketIndex = team.league_rank();
-                           const unsigned bucketSize = bucketSizes.device_get(bucketIndex);
-                           const unsigned numComponentsPerEntity = bucketNumComponentsPerEntity.device_get(bucketIndex);
+                           const unsigned bucketSize = bucketSizes(bucketIndex);
+                           const unsigned numComponentsPerEntity = fieldBucketNumComponentsPerEntity(bucketIndex);
                            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, 0u, bucketSize),
                                                 [&, bucketIndex, numComponentsPerEntity](const int& entityIdx) {
                                                   for (unsigned i = 0; i < numComponentsPerEntity; ++i) {
@@ -146,24 +120,23 @@ void transpose_all_device_data_into_buffer(const stk::mesh::FieldBase & stkField
                          });
 }
 
-template <typename DeviceViewType, typename BufferViewType>
+template <typename DeviceViewType, typename BufferViewType, typename DeviceUnsignedViewType>
 void transpose_buffer_into_all_device_data(const stk::mesh::FieldBase & stkField,
                                            BufferViewType & bufferView,
-                                           DeviceViewType & deviceView)
+                                           DeviceViewType & deviceView,
+                                           DeviceUnsignedViewType & bucketSizes,
+                                           DeviceUnsignedViewType & fieldBucketNumComponentsPerEntity)
 {
     stk::mesh::Selector selector = stk::mesh::selectField(stkField);
-    stk::NgpVector<unsigned> bucketSizes = get_bucket_sizes(stkField.get_mesh(), stkField.entity_rank(), selector);
-    stk::NgpVector<unsigned> bucketNumComponentsPerEntity = stk::mesh::get_num_components_per_entity(stkField.get_mesh(),
-                                                                                                     stkField, selector);
-    size_t numBuckets = bucketSizes.size();
+    size_t numBuckets = bucketSizes.extent(0);
 
     typedef Kokkos::TeamPolicy<stk::mesh::ExecSpace, stk::mesh::ScheduleType>::member_type TeamHandleType;
     const auto& teamPolicy = Kokkos::TeamPolicy<stk::mesh::ExecSpace>(numBuckets, Kokkos::AUTO);
-    Kokkos::parallel_for(teamPolicy,
+    Kokkos::parallel_for("transpose_buffer_into_all_device_data", teamPolicy,
                          KOKKOS_LAMBDA(const TeamHandleType & team) {
                            const unsigned bucketIndex = team.league_rank();
-                           const unsigned bucketSize = bucketSizes.device_get(bucketIndex);
-                           const unsigned numComponentsPerEntity = bucketNumComponentsPerEntity.device_get(bucketIndex);
+                           const unsigned bucketSize = bucketSizes(bucketIndex);
+                           const unsigned numComponentsPerEntity = fieldBucketNumComponentsPerEntity(bucketIndex);
                            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, 0u, bucketSize),
                                                 [&, bucketIndex, numComponentsPerEntity](const int& entityIdx) {
                                                   for (unsigned i = 0; i < numComponentsPerEntity; ++i) {

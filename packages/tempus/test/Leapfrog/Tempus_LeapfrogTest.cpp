@@ -79,7 +79,6 @@ TEUCHOS_UNIT_TEST(Leapfrog, ConstructingFromDefaults)
     auto timeStepControl = rcp(new Tempus::TimeStepControl<double>());
     ParameterList tscPL = pl->sublist("Default Integrator")
                              .sublist("Time Step Control");
-    timeStepControl->setStepType (tscPL.get<std::string>("Integrator Step Type"));
     timeStepControl->setInitIndex(tscPL.get<int>   ("Initial Time Index"));
     timeStepControl->setInitTime (tscPL.get<double>("Initial Time"));
     timeStepControl->setFinalTime(tscPL.get<double>("Final Time"));
@@ -87,8 +86,7 @@ TEUCHOS_UNIT_TEST(Leapfrog, ConstructingFromDefaults)
     timeStepControl->initialize();
 
     // Setup initial condition SolutionState --------------------
-    Thyra::ModelEvaluatorBase::InArgs<double> inArgsIC =
-      stepper->getModel()->getNominalValues();
+    auto inArgsIC = model->getNominalValues();
     auto icX = rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x());
     auto icXDot = rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x_dot());
     auto icXDotDot = rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x_dot_dot());
@@ -106,10 +104,13 @@ TEUCHOS_UNIT_TEST(Leapfrog, ConstructingFromDefaults)
     solutionHistory->setStorageLimit(2);
     solutionHistory->addState(icState);
 
+    // Ensure ICs are consistent and stepper memory is set (e.g., xDot is set).
+    stepper->setInitialConditions(solutionHistory);
+
     // Setup Integrator -----------------------------------------
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>();
-    integrator->setStepperWStepper(stepper);
+      Tempus::createIntegratorBasic<double>();
+    integrator->setStepper(stepper);
     integrator->setTimeStepControl(timeStepControl);
     integrator->setSolutionHistory(solutionHistory);
     //integrator->setObserver(...);
@@ -187,7 +188,7 @@ TEUCHOS_UNIT_TEST(Leapfrog, SinCos)
               << " (out of " << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();

@@ -14,8 +14,6 @@
 #include <utility> // for pair
 #include <vector>  // for vector
 
-#define DEFAULT_MAX_NUMBER_OF_NAMES 1000
-
 class SystemInterface
 {
 public:
@@ -46,8 +44,7 @@ public:
 
   std::pair<int, int> explicit_steps; // Only compare these two steps (db1:db2) if nonzero.
 
-  size_t max_number_of_names{DEFAULT_MAX_NUMBER_OF_NAMES};
-  int    max_warnings{100};
+  int max_warnings{100};
 
   std::vector<std::string> glob_var_names;
   Tolerance                glob_var_default{ToleranceMode::RELATIVE_, 1.0e-6, 0.0};
@@ -72,6 +69,14 @@ public:
   std::vector<std::string> ss_var_names;
   Tolerance                ss_var_default{ToleranceMode::RELATIVE_, 1.0e-6, 0.0};
   std::vector<Tolerance>   ss_var;
+
+  std::vector<std::string> eb_var_names;
+  Tolerance                eb_var_default{ToleranceMode::RELATIVE_, 1.0e-6, 0.0};
+  std::vector<Tolerance>   eb_var;
+
+  std::vector<std::string> fb_var_names;
+  Tolerance                fb_var_default{ToleranceMode::RELATIVE_, 1.0e-6, 0.0};
+  std::vector<Tolerance>   fb_var;
 
   // time step exclusion data
   std::vector<int> exclude_steps;
@@ -127,6 +132,8 @@ public:
   bool elmt_att_do_all_flag{false};
   bool ns_var_do_all_flag{false};
   bool ss_var_do_all_flag{false};
+  bool eb_var_do_all_flag{false};
+  bool fb_var_do_all_flag{false};
 
 private:
   void          enroll_options();

@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -72,6 +72,8 @@
 // Static internal helper functions
 // ========================================================================
 namespace {
+  static bool sixty_four_bit_message_output = false;
+
   std::vector<ex_entity_type> exodus_types({EX_GLOBAL, EX_BLOB, EX_ASSEMBLY, EX_NODE_BLOCK,
                                             EX_EDGE_BLOCK, EX_FACE_BLOCK, EX_ELEM_BLOCK,
                                             EX_NODE_SET, EX_EDGE_SET, EX_FACE_SET, EX_ELEM_SET,
@@ -361,10 +363,11 @@ namespace Ioex {
     assert(m_exodusFilePtr >= 0);
     // Check byte-size of integers stored on the database...
     if ((ex_int64_status(m_exodusFilePtr) & EX_ALL_INT64_DB) != 0) {
-      if (myProcessor == 0) {
+      if (myProcessor == 0 && !sixty_four_bit_message_output) {
         fmt::print(Ioss::OUTPUT(),
                    "IOSS: Input database contains 8-byte integers. Setting Ioss to use "
                    "8-byte integers.\n");
+        sixty_four_bit_message_output = true;
       }
       ex_set_int64_status(m_exodusFilePtr, EX_ALL_INT64_API);
       set_int_byte_size_api(Ioss::USE_INT64_API);
@@ -1204,13 +1207,13 @@ namespace Ioex {
     assert(state == dbState);
     switch (state) {
     case Ioss::STATE_DEFINE_MODEL:
-      if (!is_input() && open_create_behavior() != Ioss::DB_APPEND) {
-        write_meta_data();
+      if (!is_input()) {
+        write_meta_data(open_create_behavior());
       }
       break;
     case Ioss::STATE_DEFINE_TRANSIENT:
-      if (!is_input() && open_create_behavior() != Ioss::DB_APPEND) {
-        write_results_metadata();
+      if (!is_input()) {
+        write_results_metadata(true, open_create_behavior());
       }
       break;
     default: // ignore everything else...
@@ -1285,7 +1288,7 @@ namespace Ioex {
       Ioss::Utils::copy_string(the_title, "IOSS Default Output Title");
     }
 
-    Ioex::Mesh mesh(spatialDimension, the_title, !usingParallelIO);
+    Ioex::Mesh mesh(spatialDimension, the_title, util(), !usingParallelIO);
     mesh.populate(get_region());
 
     // Write the metadata to the exodus file...
@@ -1307,7 +1310,7 @@ namespace Ioex {
       if (get_file_per_state()) {
         // Close current file; create new file and output transient metadata...
         open_state_file(state);
-        write_results_metadata(false);
+        write_results_metadata(false, open_create_behavior());
       }
       int ierr = ex_put_time(get_file_pointer(), get_database_step(state), &time);
       if (ierr < 0) {
@@ -1595,7 +1598,8 @@ namespace Ioex {
   }
 
   // common
-  void BaseDatabaseIO::write_results_metadata(bool gather_data)
+  void BaseDatabaseIO::write_results_metadata(bool                           gather_data,
+                                              Ioss::IfDatabaseExistsBehavior behavior)
   {
     if (gather_data) {
       int glob_index = 0;
@@ -1609,34 +1613,34 @@ namespace Ioex {
 
       const Ioss::NodeBlockContainer &node_blocks = get_region()->get_node_blocks();
       assert(node_blocks.size() <= 1);
-      internal_write_results_metadata(EX_NODE_BLOCK, node_blocks);
+      internal_gather_results_metadata(EX_NODE_BLOCK, node_blocks);
 
       const Ioss::EdgeBlockContainer &edge_blocks = get_region()->get_edge_blocks();
-      internal_write_results_metadata(EX_EDGE_BLOCK, edge_blocks);
+      internal_gather_results_metadata(EX_EDGE_BLOCK, edge_blocks);
 
       const Ioss::FaceBlockContainer &face_blocks = get_region()->get_face_blocks();
-      internal_write_results_metadata(EX_FACE_BLOCK, face_blocks);
+      internal_gather_results_metadata(EX_FACE_BLOCK, face_blocks);
 
       const Ioss::ElementBlockContainer &element_blocks = get_region()->get_element_blocks();
-      internal_write_results_metadata(EX_ELEM_BLOCK, element_blocks);
+      internal_gather_results_metadata(EX_ELEM_BLOCK, element_blocks);
 
       const Ioss::NodeSetContainer &nodesets = get_region()->get_nodesets();
-      internal_write_results_metadata(EX_NODE_SET, nodesets);
+      internal_gather_results_metadata(EX_NODE_SET, nodesets);
 
       const Ioss::EdgeSetContainer &edgesets = get_region()->get_edgesets();
-      internal_write_results_metadata(EX_EDGE_SET, edgesets);
+      internal_gather_results_metadata(EX_EDGE_SET, edgesets);
 
       const Ioss::FaceSetContainer &facesets = get_region()->get_facesets();
-      internal_write_results_metadata(EX_FACE_SET, facesets);
+      internal_gather_results_metadata(EX_FACE_SET, facesets);
 
       const Ioss::ElementSetContainer &elementsets = get_region()->get_elementsets();
-      internal_write_results_metadata(EX_ELEM_SET, elementsets);
+      internal_gather_results_metadata(EX_ELEM_SET, elementsets);
 
       const auto &blobs = get_region()->get_blobs();
-      internal_write_results_metadata(EX_BLOB, blobs);
+      internal_gather_results_metadata(EX_BLOB, blobs);
 
       const auto &assemblies = get_region()->get_assemblies();
-      internal_write_results_metadata(EX_ASSEMBLY, assemblies);
+      internal_gather_results_metadata(EX_ASSEMBLY, assemblies);
 
       {
         int                           index    = 0;
@@ -1653,72 +1657,74 @@ namespace Ioex {
       }
     }
 
-    ex_var_params exo_params{};
+    if (behavior != Ioss::DB_APPEND && behavior != Ioss::DB_MODIFY) {
+      ex_var_params exo_params{};
 #if GLOBALS_ARE_TRANSIENT
-    exo_params.num_glob = m_variables[EX_GLOBAL].size();
+      exo_params.num_glob = m_variables[EX_GLOBAL].size();
 #else
-    exo_params.num_glob = m_reductionVariables[EX_GLOBAL].size();
+      exo_params.num_glob = m_reductionVariables[EX_GLOBAL].size();
 #endif
-    exo_params.num_node  = m_variables[EX_NODE_BLOCK].size();
-    exo_params.num_edge  = m_variables[EX_EDGE_BLOCK].size();
-    exo_params.num_face  = m_variables[EX_FACE_BLOCK].size();
-    exo_params.num_elem  = m_variables[EX_ELEM_BLOCK].size();
-    exo_params.num_nset  = m_variables[EX_NODE_SET].size();
-    exo_params.num_eset  = m_variables[EX_EDGE_SET].size();
-    exo_params.num_fset  = m_variables[EX_FACE_SET].size();
-    exo_params.num_sset  = m_variables[EX_SIDE_SET].size();
-    exo_params.num_elset = m_variables[EX_ELEM_SET].size();
+      exo_params.num_node  = m_variables[EX_NODE_BLOCK].size();
+      exo_params.num_edge  = m_variables[EX_EDGE_BLOCK].size();
+      exo_params.num_face  = m_variables[EX_FACE_BLOCK].size();
+      exo_params.num_elem  = m_variables[EX_ELEM_BLOCK].size();
+      exo_params.num_nset  = m_variables[EX_NODE_SET].size();
+      exo_params.num_eset  = m_variables[EX_EDGE_SET].size();
+      exo_params.num_fset  = m_variables[EX_FACE_SET].size();
+      exo_params.num_sset  = m_variables[EX_SIDE_SET].size();
+      exo_params.num_elset = m_variables[EX_ELEM_SET].size();
 
-    exo_params.edge_var_tab  = m_truthTable[EX_EDGE_BLOCK].data();
-    exo_params.face_var_tab  = m_truthTable[EX_FACE_BLOCK].data();
-    exo_params.elem_var_tab  = m_truthTable[EX_ELEM_BLOCK].data();
-    exo_params.nset_var_tab  = m_truthTable[EX_NODE_SET].data();
-    exo_params.eset_var_tab  = m_truthTable[EX_EDGE_SET].data();
-    exo_params.fset_var_tab  = m_truthTable[EX_FACE_SET].data();
-    exo_params.sset_var_tab  = m_truthTable[EX_SIDE_SET].data();
-    exo_params.elset_var_tab = m_truthTable[EX_ELEM_SET].data();
+      exo_params.edge_var_tab  = m_truthTable[EX_EDGE_BLOCK].data();
+      exo_params.face_var_tab  = m_truthTable[EX_FACE_BLOCK].data();
+      exo_params.elem_var_tab  = m_truthTable[EX_ELEM_BLOCK].data();
+      exo_params.nset_var_tab  = m_truthTable[EX_NODE_SET].data();
+      exo_params.eset_var_tab  = m_truthTable[EX_EDGE_SET].data();
+      exo_params.fset_var_tab  = m_truthTable[EX_FACE_SET].data();
+      exo_params.sset_var_tab  = m_truthTable[EX_SIDE_SET].data();
+      exo_params.elset_var_tab = m_truthTable[EX_ELEM_SET].data();
 
-    if (isParallel) {
-      // Check consistency among all processors.  They should all
-      // have the same number of each variable type...
-      // The called function will throw an exception if the counts differ.
-      check_variable_consistency(exo_params, myProcessor, get_filename(), util());
-    }
-
-    {
-      Ioss::SerializeIO serializeIO__(this);
-
-      int ierr = ex_put_all_var_param_ext(get_file_pointer(), &exo_params);
-      if (ierr < 0) {
-        Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
+      if (isParallel) {
+        // Check consistency among all processors.  They should all
+        // have the same number of each variable type...
+        // The called function will throw an exception if the counts differ.
+        check_variable_consistency(exo_params, myProcessor, get_filename(), util());
       }
 
-      // Blob and Assembly not supported in ex_put_all_var_param_ext...
-      if (!m_variables[EX_BLOB].empty()) {
-        ierr = ex_put_variable_param(get_file_pointer(), EX_BLOB, m_variables[EX_BLOB].size());
+      {
+        Ioss::SerializeIO serializeIO__(this);
+
+        int ierr = ex_put_all_var_param_ext(get_file_pointer(), &exo_params);
         if (ierr < 0) {
           Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
         }
-      }
-      if (!m_variables[EX_ASSEMBLY].empty()) {
-        ierr =
-            ex_put_variable_param(get_file_pointer(), EX_ASSEMBLY, m_variables[EX_ASSEMBLY].size());
-        if (ierr < 0) {
-          Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
-        }
-      }
 
-      for (const auto &type : exodus_types) {
-        output_results_names(type, m_variables[type], false);
-        output_results_names(type, m_reductionVariables[type], true);
+        // Blob and Assembly not supported in ex_put_all_var_param_ext...
+        if (!m_variables[EX_BLOB].empty()) {
+          ierr = ex_put_variable_param(get_file_pointer(), EX_BLOB, m_variables[EX_BLOB].size());
+          if (ierr < 0) {
+            Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
+          }
+        }
+        if (!m_variables[EX_ASSEMBLY].empty()) {
+          ierr = ex_put_variable_param(get_file_pointer(), EX_ASSEMBLY,
+                                       m_variables[EX_ASSEMBLY].size());
+          if (ierr < 0) {
+            Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
+          }
+        }
+
+        for (const auto &type : exodus_types) {
+          output_results_names(type, m_variables[type], false);
+          output_results_names(type, m_reductionVariables[type], true);
+        }
       }
     }
   }
 
   // common
   template <typename T>
-  void BaseDatabaseIO::internal_write_results_metadata(ex_entity_type   type,
-                                                       std::vector<T *> entities)
+  void BaseDatabaseIO::internal_gather_results_metadata(ex_entity_type   type,
+                                                        std::vector<T *> entities)
   {
     int index     = 0;
     int red_index = 0;
@@ -2290,7 +2296,7 @@ namespace Ioex {
     }
   }
 
-  void BaseDatabaseIO::common_write_meta_data()
+  void BaseDatabaseIO::common_write_meta_data(Ioss::IfDatabaseExistsBehavior behavior)
   {
     Ioss::Region *region = get_region();
 
@@ -2318,13 +2324,15 @@ namespace Ioex {
     // Assemblies --
     {
       const auto &assemblies = region->get_assemblies();
-      // Set ids of all entities that have "id" property...
-      for (auto &assem : assemblies) {
-        Ioex::set_id(assem, EX_ASSEMBLY, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        // Set ids of all entities that have "id" property...
+        for (auto &assem : assemblies) {
+          Ioex::set_id(assem, EX_ASSEMBLY, &ids_);
+        }
 
-      for (auto &assem : assemblies) {
-        Ioex::get_id(assem, EX_ASSEMBLY, &ids_);
+        for (auto &assem : assemblies) {
+          Ioex::get_id(assem, EX_ASSEMBLY, &ids_);
+        }
       }
       m_groupCount[EX_ASSEMBLY] = assemblies.size();
     }
@@ -2333,12 +2341,14 @@ namespace Ioex {
     {
       const auto &blobs = region->get_blobs();
       // Set ids of all entities that have "id" property...
-      for (auto &blob : blobs) {
-        Ioex::set_id(blob, EX_BLOB, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &blob : blobs) {
+          Ioex::set_id(blob, EX_BLOB, &ids_);
+        }
 
-      for (auto &blob : blobs) {
-        Ioex::get_id(blob, EX_BLOB, &ids_);
+        for (auto &blob : blobs) {
+          Ioex::get_id(blob, EX_BLOB, &ids_);
+        }
       }
       m_groupCount[EX_BLOB] = blobs.size();
     }
@@ -2348,15 +2358,17 @@ namespace Ioex {
       const Ioss::EdgeBlockContainer &edge_blocks = region->get_edge_blocks();
       assert(Ioss::Utils::check_block_order(edge_blocks));
       // Set ids of all entities that have "id" property...
-      for (auto &edge_block : edge_blocks) {
-        Ioex::set_id(edge_block, EX_EDGE_BLOCK, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &edge_block : edge_blocks) {
+          Ioex::set_id(edge_block, EX_EDGE_BLOCK, &ids_);
+        }
 
-      edgeCount = 0;
-      for (auto &edge_block : edge_blocks) {
-        edgeCount += edge_block->entity_count();
-        // Set ids of all entities that do not have "id" property...
-        Ioex::get_id(edge_block, EX_EDGE_BLOCK, &ids_);
+        edgeCount = 0;
+        for (auto &edge_block : edge_blocks) {
+          edgeCount += edge_block->entity_count();
+          // Set ids of all entities that do not have "id" property...
+          Ioex::get_id(edge_block, EX_EDGE_BLOCK, &ids_);
+        }
       }
       m_groupCount[EX_EDGE_BLOCK] = edge_blocks.size();
     }
@@ -2366,15 +2378,17 @@ namespace Ioex {
       const Ioss::FaceBlockContainer &face_blocks = region->get_face_blocks();
       assert(Ioss::Utils::check_block_order(face_blocks));
       // Set ids of all entities that have "id" property...
-      for (auto &face_block : face_blocks) {
-        Ioex::set_id(face_block, EX_FACE_BLOCK, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &face_block : face_blocks) {
+          Ioex::set_id(face_block, EX_FACE_BLOCK, &ids_);
+        }
 
-      faceCount = 0;
-      for (auto &face_block : face_blocks) {
-        faceCount += face_block->entity_count();
-        // Set ids of all entities that do not have "id" property...
-        Ioex::get_id(face_block, EX_FACE_BLOCK, &ids_);
+        faceCount = 0;
+        for (auto &face_block : face_blocks) {
+          faceCount += face_block->entity_count();
+          // Set ids of all entities that do not have "id" property...
+          Ioex::get_id(face_block, EX_FACE_BLOCK, &ids_);
+        }
       }
       m_groupCount[EX_FACE_BLOCK] = face_blocks.size();
     }
@@ -2383,11 +2397,12 @@ namespace Ioex {
     {
       const Ioss::ElementBlockContainer &element_blocks = region->get_element_blocks();
       assert(Ioss::Utils::check_block_order(element_blocks));
-      // Set ids of all entities that have "id" property...
-      for (auto &element_block : element_blocks) {
-        Ioex::set_id(element_block, EX_ELEM_BLOCK, &ids_);
+      if (behavior != Ioss::DB_MODIFY) {
+        // Set ids of all entities that have "id" property...
+        for (auto &element_block : element_blocks) {
+          Ioex::set_id(element_block, EX_ELEM_BLOCK, &ids_);
+        }
       }
-
       elementCount = 0;
       Ioss::Int64Vector element_counts;
       element_counts.reserve(element_blocks.size());
@@ -2395,7 +2410,9 @@ namespace Ioex {
         elementCount += element_block->entity_count();
         element_counts.push_back(element_block->entity_count());
         // Set ids of all entities that do not have "id" property...
-        Ioex::get_id(element_block, EX_ELEM_BLOCK, &ids_);
+        if (behavior != Ioss::DB_MODIFY) {
+          Ioex::get_id(element_block, EX_ELEM_BLOCK, &ids_);
+        }
       }
       m_groupCount[EX_ELEM_BLOCK] = element_blocks.size();
 
@@ -2414,12 +2431,14 @@ namespace Ioex {
     // NodeSets ...
     {
       const Ioss::NodeSetContainer &nodesets = region->get_nodesets();
-      for (auto &set : nodesets) {
-        Ioex::set_id(set, EX_NODE_SET, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &set : nodesets) {
+          Ioex::set_id(set, EX_NODE_SET, &ids_);
+        }
 
-      for (auto &set : nodesets) {
-        Ioex::get_id(set, EX_NODE_SET, &ids_);
+        for (auto &set : nodesets) {
+          Ioex::get_id(set, EX_NODE_SET, &ids_);
+        }
       }
       m_groupCount[EX_NODE_SET] = nodesets.size();
     }
@@ -2427,12 +2446,14 @@ namespace Ioex {
     // EdgeSets ...
     {
       const Ioss::EdgeSetContainer &edgesets = region->get_edgesets();
-      for (auto &set : edgesets) {
-        Ioex::set_id(set, EX_EDGE_SET, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &set : edgesets) {
+          Ioex::set_id(set, EX_EDGE_SET, &ids_);
+        }
 
-      for (auto &set : edgesets) {
-        Ioex::get_id(set, EX_EDGE_SET, &ids_);
+        for (auto &set : edgesets) {
+          Ioex::get_id(set, EX_EDGE_SET, &ids_);
+        }
       }
       m_groupCount[EX_EDGE_SET] = edgesets.size();
     }
@@ -2440,12 +2461,14 @@ namespace Ioex {
     // FaceSets ...
     {
       const Ioss::FaceSetContainer &facesets = region->get_facesets();
-      for (auto &set : facesets) {
-        Ioex::set_id(set, EX_FACE_SET, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &set : facesets) {
+          Ioex::set_id(set, EX_FACE_SET, &ids_);
+        }
 
-      for (auto &set : facesets) {
-        Ioex::get_id(set, EX_FACE_SET, &ids_);
+        for (auto &set : facesets) {
+          Ioex::get_id(set, EX_FACE_SET, &ids_);
+        }
       }
       m_groupCount[EX_FACE_SET] = facesets.size();
     }
@@ -2453,12 +2476,14 @@ namespace Ioex {
     // ElementSets ...
     {
       const Ioss::ElementSetContainer &elementsets = region->get_elementsets();
-      for (auto &set : elementsets) {
-        Ioex::set_id(set, EX_ELEM_SET, &ids_);
-      }
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &set : elementsets) {
+          Ioex::set_id(set, EX_ELEM_SET, &ids_);
+        }
 
-      for (auto &set : elementsets) {
-        Ioex::get_id(set, EX_ELEM_SET, &ids_);
+        for (auto &set : elementsets) {
+          Ioex::get_id(set, EX_ELEM_SET, &ids_);
+        }
       }
       m_groupCount[EX_ELEM_SET] = elementsets.size();
     }
@@ -2466,13 +2491,16 @@ namespace Ioex {
     // SideSets ...
     {
       const Ioss::SideSetContainer &ssets = region->get_sidesets();
-      for (auto &set : ssets) {
-        Ioex::set_id(set, EX_SIDE_SET, &ids_);
+      if (behavior != Ioss::DB_MODIFY) {
+        for (auto &set : ssets) {
+          Ioex::set_id(set, EX_SIDE_SET, &ids_);
+        }
       }
-
       // Get entity counts for all face sets... Create SideSets.
       for (auto &set : ssets) {
-        Ioex::get_id(set, EX_SIDE_SET, &ids_);
+        if (behavior != Ioss::DB_MODIFY) {
+          Ioex::get_id(set, EX_SIDE_SET, &ids_);
+        }
         int64_t id           = set->get_property("id").get_int();
         int64_t entity_count = 0;
         int64_t df_count     = 0;

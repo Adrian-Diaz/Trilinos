@@ -204,7 +204,8 @@ namespace KokkosBatched {
                    std::is_same<T,Kokkos::complex<float> >::value  ||
                    std::is_same<T,std::complex<float> >::value     ||
                    std::is_same<T,Kokkos::complex<double> >::value ||
-                   std::is_same<T,std::complex<double> >::value,
+                   std::is_same<T,std::complex<double> >::value    ||
+                   std::is_same<T,Kokkos::Experimental::half_t>::value,
                    "KokkosKernels:: Invalid SIMD<> type." );
     using value_type = T;
   };
@@ -270,12 +271,27 @@ namespace KokkosBatched {
         // regieter blocking (not about team parallelism).
         // this mb should vary according to
         // - team policy (smaller) or range policy (bigger)
-        // - space (cuda vs host)
+        // - space (gpu vs host)
         // - blocksize input (blk <= 4 mb = 2, otherwise mb = 4), etc.
 #if defined(KOKKOS_ENABLE_CUDA)
         template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
         typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::CudaSpace>::value,int>
         ::type mb() { return 2; }
+#endif
+#if defined(KOKKOS_ENABLE_HIP)
+        template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
+        typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::Experimental::HIPSpace>::value,int>
+        ::type mb() { return 2; }
+#endif
+#if defined(KOKKOS_ENABLE_SYCL)
+        template <typename ActiveMemorySpaceType>
+        KOKKOS_INLINE_FUNCTION static constexpr typename std::enable_if<
+            std::is_same<ActiveMemorySpaceType,
+                         Kokkos::Experimental::SYCLDeviceUSMSpace>::value,
+            int>::type
+        mb() {
+          return 2;
+        }
 #endif
         template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
         typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::HostSpace>::value,int>
@@ -300,7 +316,7 @@ namespace KokkosBatched {
     using Gemm = Level3;
     using Trsm = Level3;
     using Trmm = Level3;
-    using Trtri = Level3; // TODO: Need new level for Trtri?
+    using Trtri = Level3;
     using LU   = Level3;
     using InverseLU = Level3;
     using SolveLU   = Level3;
@@ -320,6 +336,21 @@ namespace KokkosBatched {
         template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
         typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::CudaSpace>::value,int>
         ::type mb() { return 1; }
+#endif
+#if defined(KOKKOS_ENABLE_HIP)
+        template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
+        typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::Experimental::HIPSpace>::value,int>
+        ::type mb() { return 1; }
+#endif
+#if defined(KOKKOS_ENABLE_SYCL)
+        template <typename ActiveMemorySpaceType>
+        KOKKOS_INLINE_FUNCTION static constexpr typename std::enable_if<
+            std::is_same<ActiveMemorySpaceType,
+                         Kokkos::Experimental::SYCLDeviceUSMSpace>::value,
+            int>::type
+        mb() {
+          return 1;
+        }
 #endif
         template<typename ActiveMemorySpaceType> KOKKOS_INLINE_FUNCTION static constexpr
         typename std::enable_if<std::is_same<ActiveMemorySpaceType,Kokkos::HostSpace>::value,int>

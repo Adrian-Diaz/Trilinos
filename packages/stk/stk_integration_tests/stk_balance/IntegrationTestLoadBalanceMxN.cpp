@@ -11,6 +11,7 @@
 #include <stk_balance/internal/MxNutils.hpp>
 #include <stk_balance/internal/balanceMtoN.hpp>
 #include <stk_balance/internal/StkBalanceUtils.hpp>
+#include <stk_balance/setup/M2NParser.hpp>
 #include <stk_io/StkMeshIoBroker.hpp>
 
 #include <stk_balance/internal/MtoNRebalancer.hpp>
@@ -92,9 +93,8 @@ private:
 std::vector<std::pair<stk::mesh::EntityId, int>> getSharingInfo(stk::mesh::BulkData& bulkData)
 {
     stk::mesh::EntityVector sharedNodes;
-    stk::mesh::get_selected_entities(bulkData.mesh_meta_data().globally_shared_part(),
-                                     bulkData.buckets(stk::topology::NODE_RANK),
-                                     sharedNodes);
+    const bool sortById = true;
+    stk::mesh::get_entities(bulkData, stk::topology::NODE_RANK, bulkData.mesh_meta_data().globally_shared_part(), sharedNodes, sortById);
     std::vector<std::pair<stk::mesh::EntityId, int>> nodeSharingInfo;
     nodeSharingInfo.reserve(8*sharedNodes.size());
 
@@ -144,13 +144,6 @@ TEST_F(TestBalanceMxNRebalanceUsingInputFiles, read4procswrite4procsFilesUsingIo
 
         verify_node_sharing_info(nodeSharingInfo, get_output_filename());
     }
-}
-
-TEST_F(TestBalanceMxNRebalanceUsingInputFiles, MxN_decompositionWithoutAura)
-{
-    set_options();
-    setup_initial_mesh_from_last_time_step(stk::mesh::BulkData::NO_AUTO_AURA);
-    stk::balance::internal::rebalanceMtoN(get_bulk(), *targetDecompField, get_num_procs_target_decomp(), get_output_filename(), numSteps, maxTime);
 }
 
 class BulkDataForBalance : public stk::mesh::BulkData

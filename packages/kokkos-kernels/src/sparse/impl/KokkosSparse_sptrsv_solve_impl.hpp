@@ -617,7 +617,7 @@ struct SparseTriSupernodalSpMVFunctor
 
   using scalar_t = typename LHSType::non_const_value_type;
 
-  using work_view_t = typename Kokkos::View<scalar_t*, memory_space>;
+  using work_view_t = typename Kokkos::View<scalar_t*, Kokkos::Device<execution_space, memory_space>>;
 
   int flag;
   long node_count;
@@ -698,7 +698,7 @@ struct LowerTriSupernodalFunctor
   using scalar_t = typename ValuesType::non_const_value_type;
 
   using integer_view_t = Kokkos::View<int*, memory_space>;
-  using work_view_t = typename Kokkos::View<scalar_t*, memory_space>;
+  using work_view_t = typename Kokkos::View<scalar_t*, Kokkos::Device<execution_space, memory_space>>;
 
   using range_type = Kokkos::pair<int, int>;
 
@@ -875,7 +875,7 @@ struct UpperTriSupernodalFunctor
   using scalar_t = typename ValuesType::non_const_value_type;
 
   using integer_view_t = Kokkos::View<int*, memory_space>;
-  using work_view_t = typename Kokkos::View<scalar_t*, memory_space>;
+  using work_view_t = typename Kokkos::View<scalar_t*, Kokkos::Device<execution_space, memory_space>>;
 
   using SupernodeView = typename Kokkos::View<scalar_t**, Kokkos::LayoutLeft,
                                               memory_space, Kokkos::MemoryUnmanaged>;
@@ -1028,7 +1028,7 @@ struct UpperTriTranSupernodalFunctor
   using scalar_t = typename ValuesType::non_const_value_type;
 
   using integer_view_t = Kokkos::View<int*, memory_space>;
-  using work_view_t = typename Kokkos::View<scalar_t*, memory_space>;
+  using work_view_t = typename Kokkos::View<scalar_t*, Kokkos::Device<execution_space, memory_space>>;
 
   using range_type =  Kokkos::pair<int, int>;
 
@@ -2464,6 +2464,23 @@ struct ReturnRangePolicyType<Kokkos::Cuda> {
   }
 };
 #endif
+#ifdef KOKKOS_ENABLE_HIP
+template <>
+struct ReturnRangePolicyType<Kokkos::Experimental::HIP> {
+  using PolicyType = Kokkos::RangePolicy<Kokkos::Experimental::HIP>;
+
+  static inline
+  PolicyType get_policy(int nt, int ts) {
+    return PolicyType(nt,ts);
+  }
+
+  template <class ExecInstanceType>
+  static inline
+  PolicyType get_policy(int nt, int ts, ExecInstanceType stream) {
+    return PolicyType(stream,nt,ts);
+  }
+};
+#endif
 
 template < class TriSolveHandle, class RowMapType, class EntriesType, class ValuesType, class RHSType, class LHSType >
 void lower_tri_solve_cg( TriSolveHandle & thandle, const RowMapType row_map, const EntriesType entries, const ValuesType values, const RHSType & rhs, LHSType &lhs) {
@@ -2639,6 +2656,10 @@ cudaProfilerStop();
 
   size_type node_count = 0;
 
+  #ifdef profile_supernodal_etree
+  Kokkos::Timer sptrsv_timer;
+  sptrsv_timer.reset();
+  #endif
   for ( size_type lvl = 0; lvl < nlevels; ++lvl ) {
    {
     size_type lvl_nodes = hnodes_per_level(lvl);
@@ -2699,7 +2720,6 @@ cudaProfilerStart();
                thandle.get_algorithm () == SPTRSVAlgorithm::SUPERNODAL_ETREE ||
                thandle.get_algorithm () == SPTRSVAlgorithm::SUPERNODAL_DAG) {
 
-        //#define profile_supernodal_etree
         #ifdef profile_supernodal_etree
         size_t flops = 0;
         Kokkos::Timer timer;
@@ -2867,6 +2887,13 @@ cudaProfilerStop();
    } // scope for if-block
 
   } // end for lvl
+  #ifdef profile_supernodal_etree
+  Kokkos::fence();
+  double sptrsv_time_seconds = sptrsv_timer.seconds ();
+  std::cout << " + Execution space   : " << execution_space::name () << std::endl;
+  std::cout << " + Memory space      : " << memory_space::name () << std::endl;
+  std::cout << " + SpTrsv(lower) time: " << sptrsv_time_seconds << std::endl << std::endl;
+  #endif
 
 } // end lower_tri_solve
 
@@ -2937,6 +2964,10 @@ cudaProfilerStop();
   size_type node_count = 0;
 
   // This must stay serial; would be nice to try out Cuda's graph stuff to reduce kernel launch overhead
+  #ifdef profile_supernodal_etree
+  Kokkos::Timer sptrsv_timer;
+  sptrsv_timer.reset();
+  #endif
   for ( size_type lvl = 0; lvl < nlevels; ++lvl ) {
     size_type lvl_nodes = hnodes_per_level(lvl);
 
@@ -3262,6 +3293,13 @@ cudaProfilerStop();
 #endif
     } // end if
   } // end for lvl
+  #ifdef profile_supernodal_etree
+  Kokkos::fence();
+  double sptrsv_time_seconds = sptrsv_timer.seconds ();
+  std::cout << " + SpTrsv(uppper) time: " << sptrsv_time_seconds << std::endl << std::endl;
+  std::cout <<"  + Execution space    : " << execution_space::name () << std::endl;
+  std::cout << " + Memory space       : " << memory_space::name () << std::endl;
+  #endif
 
 } // end upper_tri_solve
 

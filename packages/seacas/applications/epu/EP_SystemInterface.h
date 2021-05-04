@@ -1,5 +1,5 @@
 /*
- * Copyright(C) 1999-2020 National Technology & Engineering Solutions
+ * Copyright(C) 1999-2021 National Technology & Engineering Solutions
  * of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
  * NTESS, the U.S. Government retains certain rights in this software.
  *
@@ -55,9 +55,12 @@ namespace Excn {
     std::string root_dir() const { return rootDirectory_; }
     std::string sub_dir() const { return subDirectory_; }
 
-    bool add_processor_id_field() const { return addProcessorId_; }
+    bool add_nodal_communication_map() const { return addNodalCommunicationMap_; }
+    bool add_processor_id_field() const { return addProcessorIdField_; }
+    bool add_processor_id_map() const { return addProcessorIdMap_; }
     bool sum_shared_nodes() const { return sumSharedNodes_; }
     bool use_netcdf4() const { return useNetcdf4_; }
+    bool use_netcdf5() const { return useNetcdf5_; }
     void set_use_netcdf4() const { useNetcdf4_ = true; }
     bool append() const { return append_; }
     bool map_element_ids() const { return mapIds_; }
@@ -133,17 +136,20 @@ namespace Excn {
     bool         zlib_{true};
     bool         szip_{false};
     bool         sumSharedNodes_{false};
-    bool         addProcessorId_{false};
+    bool         addProcessorIdField_{false};
+    bool         addProcessorIdMap_{false};
     bool         mapIds_{true};
     bool         omitNodesets_{false};
     bool         omitSidesets_{false};
     mutable bool useNetcdf4_{false};
+    bool         useNetcdf5_{false};
     bool         append_{false};
     mutable bool intIs64Bit_{false};
     bool         subcycleJoin_{false};
     bool         outputSharedNodes_{false};
     bool         auto_{false};
     bool         keepTemporary_{false};
+    bool         addNodalCommunicationMap_{false};
 
     StringIdVector globalVarNames_;
     StringIdVector nodeVarNames_;

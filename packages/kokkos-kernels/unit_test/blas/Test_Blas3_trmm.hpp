@@ -49,7 +49,7 @@ namespace Test {
     KOKKOS_INLINE_FUNCTION
     void operator() (const typename Kokkos::TeamPolicy<ExecutionSpace>::member_type& team) const {
 // GNU COMPILER BUG WORKAROUND
-#if defined(KOKKOS_COMPILER_GNU) && !defined(__CUDA_ARCH__)
+#if defined(KOKKOS_COMPILER_GNU) && !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
       int i = team.league_rank();
 #else
       const int i = team.league_rank();
@@ -121,7 +121,6 @@ namespace Test {
       Kokkos::parallel_for("KokkosBlas::Test::NonUnitDiagTRMM", Kokkos::RangePolicy<execution_space>(0,K), nudtrmm);
     }
     Kokkos::fill_random(B, rand_pool, Kokkos::rand<Kokkos::Random_XorShift64<execution_space>, ScalarA>::max());
-    Kokkos::fence();
     
     Kokkos::deep_copy(host_A,  A);
     // Make host_A a lower triangle
@@ -162,11 +161,9 @@ namespace Test {
       vgemm.beta = beta;
       Kokkos::parallel_for("KokkosBlas::Test::VanillaGEMM", Kokkos::TeamPolicy<execution_space>(M,Kokkos::AUTO,16), vgemm);
     }
-    Kokkos::fence();
     Kokkos::deep_copy(host_B_expected, B_expected);
 
     KokkosBlas::trmm(side, uplo, trans, diag, alpha, A, B);
-    Kokkos::fence();
     Kokkos::deep_copy(host_B_actual, B);
 
     bool test_flag = true;

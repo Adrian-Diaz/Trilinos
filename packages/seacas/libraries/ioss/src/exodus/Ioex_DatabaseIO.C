@@ -1,4 +1,4 @@
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -157,9 +157,10 @@ namespace Ioex {
       : Ioex::BaseDatabaseIO(region, filename, db_usage, communicator, props)
   {
     if (!is_input()) {
-      // Check whether appending to existing file...
+      // Check whether appending to or modify existing file...
       if (open_create_behavior() == Ioss::DB_APPEND ||
-          open_create_behavior() == Ioss::DB_APPEND_GROUP) {
+          open_create_behavior() == Ioss::DB_APPEND_GROUP ||
+          open_create_behavior() == Ioss::DB_MODIFY) {
         // Append to file if it already exists -- See if the file exists.
         Ioss::FileInfo file = Ioss::FileInfo(decoded_filename());
         fileExists          = file.exists();
@@ -382,14 +383,6 @@ namespace Ioex {
       ex_set_max_name_length(m_exodusFilePtr, maximumNameLength);
 
       // Check properties handled post-create/open...
-      if (properties.exists("COMPRESSION_LEVEL")) {
-        int comp_level = properties.get("COMPRESSION_LEVEL").get_int();
-        ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_LEVEL, comp_level);
-      }
-      if (properties.exists("COMPRESSION_SHUFFLE")) {
-        int shuffle = properties.get("COMPRESSION_SHUFFLE").get_int();
-        ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_SHUFFLE, shuffle);
-      }
       if (properties.exists("COMPRESSION_METHOD")) {
         auto method                    = properties.get("COMPRESSION_METHOD").get_string();
         method                         = Ioss::Utils::lowercase(method);
@@ -398,7 +391,10 @@ namespace Ioex {
           exo_method = EX_COMPRESS_ZLIB;
         }
         else if (method == "szip") {
-#if defined(NC_HAS_SZIP_WRITE)
+#if !defined(NC_HAS_SZIP_WRITE)
+#define NC_HAS_SZIP_WRITE 0
+#endif
+#if NC_HAS_SZIP_WRITE
           exo_method = EX_COMPRESS_SZIP;
 #else
           fmt::print(Ioss::WARNING(), "The NetCDF library does not have SZip compression enabled."
@@ -412,6 +408,16 @@ namespace Ioex {
                      method);
         }
         ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_TYPE, exo_method);
+      }
+
+      if (properties.exists("COMPRESSION_LEVEL")) {
+        int comp_level = properties.get("COMPRESSION_LEVEL").get_int();
+        ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_LEVEL, comp_level);
+      }
+
+      if (properties.exists("COMPRESSION_SHUFFLE")) {
+        int shuffle = properties.get("COMPRESSION_SHUFFLE").get_int();
+        ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_SHUFFLE, shuffle);
       }
     }
     ex_opts(app_opt_val); // Reset back to what it was.
@@ -461,6 +467,18 @@ namespace Ioex {
         get_step_times__();
         add_region_fields();
       }
+      return;
+    }
+
+    // APPENDING:
+    // There is an assumption that the writing process (mesh, vars) is
+    // the same for the original run that created this database and
+    // for this run which is appending to the database so the defining
+    // of the output database should be the same except we don't write
+    // anything since it is already there.  We do need the number of
+    // steps though...
+    if (open_create_behavior() == Ioss::DB_APPEND) {
+      get_step_times__();
       return;
     }
 
@@ -946,23 +964,27 @@ namespace Ioex {
             Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
           }
 
-          if (map_count == 1 && Ioss::Utils::str_equal(names[0], "original_global_id_map")) {
-            int error = 0;
-            if ((ex_int64_status(get_file_pointer()) & EX_BULK_INT64_API) != 0) {
-              Ioss::Int64Vector tmp_map(entity_map.size());
-              error = ex_get_num_map(get_file_pointer(), entity_type, 1, tmp_map.data());
-              if (error >= 0) {
-                entity_map.set_map(tmp_map.data(), tmp_map.size(), 0, true);
-                map_read = true;
+          for (int i = 0; i < map_count; i++) {
+            if (Ioss::Utils::str_equal(names[i], "original_global_id_map")) {
+              int error = 0;
+              if ((ex_int64_status(get_file_pointer()) & EX_BULK_INT64_API) != 0) {
+                Ioss::Int64Vector tmp_map(entity_map.size());
+                error = ex_get_num_map(get_file_pointer(), entity_type, i + 1, tmp_map.data());
+                if (error >= 0) {
+                  entity_map.set_map(tmp_map.data(), tmp_map.size(), 0, true);
+                  map_read = true;
+                  break;
+                }
               }
-            }
-            else {
-              // Ioss stores as 64-bit, read as 32-bit and copy over...
-              Ioss::IntVector tmp_map(entity_map.size());
-              error = ex_get_num_map(get_file_pointer(), entity_type, 1, tmp_map.data());
-              if (error >= 0) {
-                entity_map.set_map(tmp_map.data(), tmp_map.size(), 0, true);
-                map_read = true;
+              else {
+                // Ioss stores as 64-bit, read as 32-bit and copy over...
+                Ioss::IntVector tmp_map(entity_map.size());
+                error = ex_get_num_map(get_file_pointer(), entity_type, i + 1, tmp_map.data());
+                if (error >= 0) {
+                  entity_map.set_map(tmp_map.data(), tmp_map.size(), 0, true);
+                  map_read = true;
+                  break;
+                }
               }
             }
           }
@@ -2894,7 +2916,7 @@ int64_t DatabaseIO::get_field_internal(const Ioss::CommSet *cs, const Ioss::Fiel
                 entity_proc[j++] = pros[i];
               }
             }
-            else {
+            else { // "entity_processor_raw"
               for (int64_t i = 0; i < entity_count; i++) {
                 entity_proc[j++] = ents[i];
                 entity_proc[j++] = pros[i];
@@ -2916,7 +2938,7 @@ int64_t DatabaseIO::get_field_internal(const Ioss::CommSet *cs, const Ioss::Fiel
                 entity_proc[j++] = pros[i];
               }
             }
-            else {
+            else { // "entity_processor_raw"
               for (int64_t i = 0; i < entity_count; i++) {
                 entity_proc[j++] = ents[i];
                 entity_proc[j++] = pros[i];
@@ -5184,9 +5206,17 @@ int64_t DatabaseIO::put_field_internal(const Ioss::SideBlock *fb, const Ioss::Fi
           Ioss::IntVector side(num_to_get);
           int *           el_side = reinterpret_cast<int *>(data);
 
-          for (size_t i = 0; i < num_to_get; i++) {
-            element[i] = elemMap.global_to_local(el_side[index++]);
-            side[i]    = el_side[index++] + side_offset;
+          try {
+            for (size_t i = 0; i < num_to_get; i++) {
+              element[i] = elemMap.global_to_local(el_side[index++]);
+              side[i]    = el_side[index++] + side_offset;
+            }
+          }
+          catch (const std::runtime_error &x) {
+            std::ostringstream errmsg;
+            fmt::print(errmsg, "{}On SideBlock `{}` while outputting field `elem_side`\n", x.what(),
+                       fb->name());
+            IOSS_ERROR(errmsg);
           }
 
           int ierr = ex_put_partial_set(get_file_pointer(), EX_SIDE_SET, id, offset + 1,
@@ -5200,9 +5230,17 @@ int64_t DatabaseIO::put_field_internal(const Ioss::SideBlock *fb, const Ioss::Fi
           Ioss::Int64Vector side(num_to_get);
           auto *            el_side = reinterpret_cast<int64_t *>(data);
 
-          for (size_t i = 0; i < num_to_get; i++) {
-            element[i] = elemMap.global_to_local(el_side[index++]);
-            side[i]    = el_side[index++] + side_offset;
+          try {
+            for (size_t i = 0; i < num_to_get; i++) {
+              element[i] = elemMap.global_to_local(el_side[index++]);
+              side[i]    = el_side[index++] + side_offset;
+            }
+          }
+          catch (const std::runtime_error &x) {
+            std::ostringstream errmsg;
+            fmt::print(errmsg, "{}On SideBlock `{}` while outputting field `elem_side`\n", x.what(),
+                       fb->name());
+            IOSS_ERROR(errmsg);
           }
 
           int ierr = ex_put_partial_set(get_file_pointer(), EX_SIDE_SET, id, offset + 1,
@@ -5293,10 +5331,10 @@ int64_t DatabaseIO::put_field_internal(const Ioss::SideBlock *fb, const Ioss::Fi
   return num_to_get;
 }
 
-void DatabaseIO::write_meta_data()
+void DatabaseIO::write_meta_data(Ioss::IfDatabaseExistsBehavior behavior)
 {
   Ioss::Region *region = get_region();
-  common_write_meta_data();
+  common_write_meta_data(behavior);
 
   char the_title[max_line_length + 1];
 
@@ -5310,28 +5348,47 @@ void DatabaseIO::write_meta_data()
   }
 
   bool       file_per_processor = true;
-  Ioex::Mesh mesh(spatialDimension, the_title, file_per_processor);
+  Ioex::Mesh mesh(spatialDimension, the_title, util(), file_per_processor);
   {
-    Ioss::SerializeIO serializeIO__(this);
-    if (!properties.exists("OMIT_QA_RECORDS")) {
-      put_qa();
-    }
-    if (!properties.exists("OMIT_INFO_RECORDS")) {
-      put_info();
+    bool omit_maps = false;
+    Ioss::Utils::check_set_bool_property(properties, "OMIT_EXODUS_NUM_MAPS", omit_maps);
+    if (omit_maps) {
+      // Used for special cases only -- typically very large meshes with *known* 1..count maps
+      // and workarounds that avoid calling the "ids" put_field calls.
+      mesh.use_node_map = false;
+      mesh.use_elem_map = false;
+      mesh.use_face_map = false;
+      mesh.use_edge_map = false;
     }
 
+    bool minimal_nemesis = false;
+    Ioss::Utils::check_set_bool_property(properties, "MINIMAL_NEMESIS_DATA", minimal_nemesis);
+    if (minimal_nemesis) {
+      // Only output the node communication map data... This is all that stk/sierra needs
+      mesh.full_nemesis_data = false;
+    }
+
+    Ioss::SerializeIO serializeIO__(this);
     mesh.populate(region);
     gather_communication_metadata(&mesh.comm);
 
-    // Write the metadata to the exodus file...
-    Ioex::Internals data(get_file_pointer(), maximumNameLength, util());
-    int             ierr = data.write_meta_data(mesh);
+    if (behavior != Ioss::DB_APPEND && behavior != Ioss::DB_MODIFY) {
+      if (!properties.exists("OMIT_QA_RECORDS")) {
+        put_qa();
+      }
+      if (!properties.exists("OMIT_INFO_RECORDS")) {
+        put_info();
+      }
 
-    if (ierr < 0) {
-      Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
+      // Write the metadata to the exodus file...
+      Ioex::Internals data(get_file_pointer(), maximumNameLength, util());
+      int             ierr = data.write_meta_data(mesh);
+
+      if (ierr < 0) {
+        Ioex::exodus_error(get_file_pointer(), __LINE__, __func__, __FILE__);
+      }
+      output_other_meta_data();
     }
-
-    output_other_meta_data();
   }
 }
 

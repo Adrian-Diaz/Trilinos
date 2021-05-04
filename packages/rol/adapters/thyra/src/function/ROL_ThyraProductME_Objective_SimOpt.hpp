@@ -45,6 +45,7 @@
 #define ROL_THYRAPRODUCTME_OBJECTIVE_SIMOPT
 
 #include "Thyra_ProductVectorBase.hpp"
+#include "Thyra_PhysicallyBlockedLinearOpBase.hpp"
 #include "ROL_StdVector.hpp"
 #include "ROL_Objective_SimOpt.hpp"
 #include "ROL_Types.hpp"
@@ -259,6 +260,53 @@ public:
     computeGradient2 = false;
   }
 
+  void hessian_22(const Teuchos::RCP<Thyra::PhysicallyBlockedLinearOpBase<Real>> H,
+                  const Vector<Real> &u,
+                  const Vector<Real> &z) {
+    if(verbosityLevel >= Teuchos::VERB_MEDIUM)
+      *out << "ROL::ThyraProductME_Objective_SimOpt::hessian_22" << std::endl;
+
+    Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model.createOutArgs();
+    bool supports_deriv = true;
+    for(std::size_t i=0; i<p_indices.size(); ++i)
+      supports_deriv = supports_deriv &&  outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index, p_indices[i], p_indices[i]);
+
+    if(supports_deriv) { //use derivatives computed by model evaluator
+      const ThyraVector<Real>  & thyra_p = dynamic_cast<const ThyraVector<Real>&>(z);
+      Ptr<Vector<Real>> unew = u.clone();
+      unew->set(u);
+      const ThyraVector<Real>  & thyra_x = dynamic_cast<const ThyraVector<Real>&>(*unew);
+
+      Teuchos::RCP<const  Thyra::ProductVectorBase<Real> > thyra_prodvec_p = Teuchos::rcp_dynamic_cast<const Thyra::ProductVectorBase<Real>>(thyra_p.getVector());
+
+      Thyra::ModelEvaluatorBase::InArgs<Real> inArgs = thyra_model.createInArgs();
+
+      H->beginBlockFill(p_indices.size(), p_indices.size());
+
+      for(std::size_t i=0; i<p_indices.size(); ++i) {
+        inArgs.set_p(p_indices[i], thyra_prodvec_p->getVectorBlock(i));
+      }
+      inArgs.set_x(thyra_x.getVector());
+
+      Teuchos::RCP< Thyra::VectorBase<Real> > multiplier_g = Thyra::createMember<Real>(thyra_model.get_g_multiplier_space(g_index));
+      Thyra::put_scalar(1.0, multiplier_g.ptr());
+      inArgs.set_g_multiplier(g_index, multiplier_g);
+
+      Thyra::ModelEvaluatorBase::OutArgs<Real> outArgs = thyra_model.createOutArgs();
+
+      for(std::size_t i=0; i<p_indices.size(); ++i) {
+        bool supports_deriv = outArgs.supports(Thyra::ModelEvaluatorBase::OUT_ARG_hess_g_pp, g_index, p_indices[i], p_indices[i]);
+        ROL_TEST_FOR_EXCEPTION( !supports_deriv, std::logic_error, "ROL::ThyraProductME_Objective_SimOpt: H_pp is not supported");
+
+        Teuchos::RCP<Thyra::LinearOpBase<Real>> hess_g_pp = thyra_model.create_hess_g_pp(g_index, p_indices[i], p_indices[i]);
+        outArgs.set_hess_g_pp(g_index, p_indices[i], p_indices[i], hess_g_pp);
+        H->setBlock(p_indices[i], p_indices[i], hess_g_pp);
+      }
+      H->endBlockFill();
+
+      thyra_model.evalModel(inArgs, outArgs);
+    }
+  }
 
   void hessVec_11( Vector<Real> &hv, const Vector<Real> &v,
       const Vector<Real> &u,  const Vector<Real> &z, Real &/*tol*/ ) {
@@ -596,6 +644,35 @@ public:
   }
 
   void update( const Vector<Real> &u, const Vector<Real> &z, bool /*flag*/ = true, int iter = -1) {
+    if(z_hasChanged(z) || u_hasChanged(u)) {
+      if(verbosityLevel >= Teuchos::VERB_HIGH)
+        *out << "ROL::ThyraProductME_Objective_SimOpt::update, Either The State Or The Parameters Changed" << std::endl;
+      computeValue = computeGradient1 = computeGradient2 = true;
+
+      if (Teuchos::is_null(rol_z_ptr))
+        rol_z_ptr = z.clone();
+      rol_z_ptr->set(z);
+
+      if (Teuchos::is_null(rol_u_ptr))
+        rol_u_ptr = u.clone();
+      rol_u_ptr->set(u);
+    }
+
+    if(params != Teuchos::null) {
+      auto& z_stored_ptr = params->get<Teuchos::RCP<Vector<Real> > >("Optimization Variable");
+      if(Teuchos::is_null(z_stored_ptr) || z_hasChanged(*z_stored_ptr)) {
+        if(verbosityLevel >= Teuchos::VERB_HIGH)
+          *out << "ROL::ThyraProductME_Objective_SimOpt::update, Signaling That Parameter Changed" << std::endl;
+        params->set<bool>("Optimization Variables Changed", true);
+        if(Teuchos::is_null(z_stored_ptr))
+          z_stored_ptr = z.clone();
+        z_stored_ptr->set(z);
+      }
+      params->set<int>("Optimizer Iteration Number", iter);
+    }
+  }
+
+  void update( const Vector<Real> &u, const Vector<Real> &z, EUpdateType type, int iter = -1) {
     if(z_hasChanged(z) || u_hasChanged(u)) {
       if(verbosityLevel >= Teuchos::VERB_HIGH)
         *out << "ROL::ThyraProductME_Objective_SimOpt::update, Either The State Or The Parameters Changed" << std::endl;

@@ -12,7 +12,10 @@
 
 #include "Tempus_config.hpp"
 #include "Tempus_IntegratorBasic.hpp"
+
 #include "Tempus_StepperFactory.hpp"
+#include "Tempus_StepperNewmarkImplicitAForm.hpp"
+#include "Tempus_StepperNewmarkImplicitDForm.hpp"
 
 #include "../TestModels/HarmonicOscillatorModel.hpp"
 #include "../TestUtils/Tempus_ConvergenceTestUtils.hpp"
@@ -38,6 +41,7 @@ namespace Tempus_Test {
 
 using Teuchos::RCP;
 using Teuchos::rcp_const_cast;
+using Teuchos::rcp_dynamic_cast;
 using Teuchos::ParameterList;
 using Teuchos::sublist;
 using Teuchos::getParametersFromXmlFile;
@@ -80,7 +84,7 @@ TEUCHOS_UNIT_TEST(NewmarkExplicitAForm, BallParabolic)
     }
 
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>(pl, model);
+      Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -178,7 +182,7 @@ TEUCHOS_UNIT_TEST(NewmarkExplicitAForm, SinCos)
               << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -292,7 +296,7 @@ TEUCHOS_UNIT_TEST(NewmarkExplicitAForm, HarmonicOscillatorDamped)
               << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -382,13 +386,12 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, ConstructingFromDefaults)
 
     // Setup the HarmonicOscillatorModel
     RCP<ParameterList> hom_pl = sublist(pList, "HarmonicOscillatorModel", true);
-    RCP<HarmonicOscillatorModel<double> > model =
-      Teuchos::rcp(new HarmonicOscillatorModel<double>(hom_pl));
+    auto model = Teuchos::rcp(new HarmonicOscillatorModel<double>(hom_pl));
+    auto modelME = rcp_dynamic_cast<const Thyra::ModelEvaluator<double>>(model);
 
     // Setup Stepper for field solve ----------------------------
-    auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
     RCP<Tempus::StepperNewmarkImplicitAForm<double> > stepper =
-      sf->createStepperNewmarkImplicitAForm(model, Teuchos::null);
+      Tempus::createStepperNewmarkImplicitAForm(modelME, Teuchos::null);
     if (option == "ICConsistency and Check") {
       stepper->setICConsistency("Consistent");
       stepper->setICConsistencyCheck(true);
@@ -400,7 +403,6 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, ConstructingFromDefaults)
       Teuchos::rcp(new Tempus::TimeStepControl<double>());
     ParameterList tscPL = pl->sublist("Default Integrator")
                              .sublist("Time Step Control");
-    timeStepControl->setStepType (tscPL.get<std::string>("Integrator Step Type"));
     timeStepControl->setInitIndex(tscPL.get<int>   ("Initial Time Index"));
     timeStepControl->setInitTime (tscPL.get<double>("Initial Time"));
     timeStepControl->setFinalTime(tscPL.get<double>("Final Time"));
@@ -409,8 +411,7 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, ConstructingFromDefaults)
 
     // Setup initial condition SolutionState --------------------
     using Teuchos::rcp_const_cast;
-    Thyra::ModelEvaluatorBase::InArgs<double> inArgsIC =
-      stepper->getModel()->getNominalValues();
+    auto inArgsIC = model->getNominalValues();
     RCP<Thyra::VectorBase<double> > icX =
       rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x());
     RCP<Thyra::VectorBase<double> > icXDot =
@@ -433,10 +434,13 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, ConstructingFromDefaults)
     solutionHistory->setStorageLimit(2);
     solutionHistory->addState(icState);
 
+    // Ensure ICs are consistent.
+    stepper->setInitialConditions(solutionHistory);
+
     // Setup Integrator -----------------------------------------
     RCP<Tempus::IntegratorBasic<double> > integrator =
-      Tempus::integratorBasic<double>();
-    integrator->setStepperWStepper(stepper);
+      Tempus::createIntegratorBasic<double>();
+    integrator->setStepper(stepper);
     integrator->setTimeStepControl(timeStepControl);
     integrator->setSolutionHistory(solutionHistory);
     //integrator->setObserver(...);
@@ -488,20 +492,17 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitDForm, Constructing_From_Defaults)
 
   // Setup the HarmonicOscillatorModel
   RCP<ParameterList> hom_pl = sublist(pList, "HarmonicOscillatorModel", true);
-  RCP<HarmonicOscillatorModel<double> > model =
-    Teuchos::rcp(new HarmonicOscillatorModel<double>(hom_pl, true));
+  auto model = Teuchos::rcp(new HarmonicOscillatorModel<double>(hom_pl, true));
+  auto modelME = rcp_dynamic_cast<const Thyra::ModelEvaluator<double>>(model);
 
   // Setup Stepper for field solve ----------------------------
-  auto sf = Teuchos::rcp(new Tempus::StepperFactory<double>());
-  RCP<Tempus::StepperNewmarkImplicitDForm<double> > stepper =
-    sf->createStepperNewmarkImplicitDForm(model, Teuchos::null);
+  auto stepper = Tempus::createStepperNewmarkImplicitDForm(modelME, Teuchos::null);
 
   // Setup TimeStepControl ------------------------------------
   RCP<Tempus::TimeStepControl<double> > timeStepControl =
     Teuchos::rcp(new Tempus::TimeStepControl<double>());
   ParameterList tscPL = pl->sublist("Default Integrator")
                            .sublist("Time Step Control");
-  timeStepControl->setStepType (tscPL.get<std::string>("Integrator Step Type"));
   timeStepControl->setInitIndex(tscPL.get<int>   ("Initial Time Index"));
   timeStepControl->setInitTime (tscPL.get<double>("Initial Time"));
   timeStepControl->setFinalTime(tscPL.get<double>("Final Time"));
@@ -510,8 +511,7 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitDForm, Constructing_From_Defaults)
 
   // Setup initial condition SolutionState --------------------
   using Teuchos::rcp_const_cast;
-  Thyra::ModelEvaluatorBase::InArgs<double> inArgsIC =
-    stepper->getModel()->getNominalValues();
+  auto inArgsIC = model->getNominalValues();
   RCP<Thyra::VectorBase<double> > icX =
     rcp_const_cast<Thyra::VectorBase<double> > (inArgsIC.get_x());
   RCP<Thyra::VectorBase<double> > icXDot =
@@ -536,8 +536,8 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitDForm, Constructing_From_Defaults)
 
   // Setup Integrator -----------------------------------------
   RCP<Tempus::IntegratorBasic<double> > integrator =
-    Tempus::integratorBasic<double>();
-  integrator->setStepperWStepper(stepper);
+    Tempus::createIntegratorBasic<double>();
+  integrator->setStepper(stepper);
   integrator->setTimeStepControl(timeStepControl);
   integrator->setSolutionHistory(solutionHistory);
   //integrator->setObserver(...);
@@ -614,7 +614,7 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, HarmonicOscillatorDamped_SecondOrder)
               << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -726,7 +726,7 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitDForm, HarmonicOscillatorDamped_SecondOrder)
               << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();
@@ -838,7 +838,7 @@ TEUCHOS_UNIT_TEST(NewmarkImplicitAForm, HarmonicOscillatorDamped_FirstOrder)
               << nTimeStepSizes-1 << "), dt = " << dt << "\n";
     pl->sublist("Default Integrator")
        .sublist("Time Step Control").set("Initial Time Step", dt);
-    integrator = Tempus::integratorBasic<double>(pl, model);
+    integrator = Tempus::createIntegratorBasic<double>(pl, model);
 
     // Integrate to timeMax
     bool integratorStatus = integrator->advanceTime();

@@ -536,12 +536,6 @@ void RILUK<MatrixType>::initialize ()
       }
       Graph_ = rcp (new Ifpack2::IlukGraph<crs_graph_type,kk_handle_type> (A_local_crs->getCrsGraph (),
                                                                            LevelOfFill_, 0, Overalloc_));
-
-      if (this->isKokkosKernelsSpiluk_) {
-        A_local_rowmap_  = A_local_crs->getLocalMatrix().graph.row_map;
-        A_local_entries_ = A_local_crs->getLocalMatrix().graph.entries;
-        A_local_values_  = A_local_crs->getLocalValuesView();
-      }
     }
 
     if (this->isKokkosKernelsSpiluk_) Graph_->initialize (KernelHandle_);
@@ -628,7 +622,7 @@ initAllValues (const row_matrix_type& A)
   }
 
   D_->putScalar (STS::zero ()); // Set diagonal values to zero
-  ArrayRCP<scalar_type> DV = D_->get1dViewNonConst (); // Get view of diagonal
+  auto DV = Kokkos::subview(D_->getLocalViewHost(Tpetra::Access::ReadWrite), Kokkos::ALL(), 0);
 
   RCP<const map_type> rowMap = L_->getRowMap ();
 
@@ -660,7 +654,7 @@ initAllValues (const row_matrix_type& A)
       if (k == local_row) {
         DiagFound = true;
         // Store perturbed diagonal in Tpetra::Vector D_
-        DV[local_row] += Rthresh_ * InV[j] + IFPACK2_SGN(InV[j]) * Athresh_;
+        DV(local_row) += Rthresh_ * InV[j] + IFPACK2_SGN(InV[j]) * Athresh_;
       }
       else if (k < 0) { // Out of range
         TEUCHOS_TEST_FOR_EXCEPTION(
@@ -688,7 +682,7 @@ initAllValues (const row_matrix_type& A)
     if (DiagFound) {
       ++NumNonzeroDiags;
     } else {
-      DV[local_row] = Athresh_;
+      DV(local_row) = Athresh_;
     }
 
     if (NumL) {
@@ -724,7 +718,10 @@ void RILUK<MatrixType>::compute ()
 {
   using Teuchos::RCP;
   using Teuchos::rcp;
+  using Teuchos::rcp_const_cast;
   using Teuchos::rcp_dynamic_cast;
+  using Teuchos::Array;
+  using Teuchos::ArrayView;
   const char prefix[] = "Ifpack2::RILUK::compute: ";
 
   // initialize() checks this too, but it's easier for users if the
@@ -774,8 +771,8 @@ void RILUK<MatrixType>::compute ()
     size_t num_cols = U_->getColMap()->getNodeNumElements();
     Teuchos::Array<int> colflag(num_cols);
 
-    Teuchos::ArrayRCP<scalar_type> DV = D_->get1dViewNonConst(); // Get view of diagonal
-																				 
+    auto DV = Kokkos::subview(D_->getLocalViewHost(Tpetra::Access::ReadWrite), Kokkos::ALL(), 0);
+
     // Now start the factorization.
 
     // Need some integer workspace and pointers
@@ -794,7 +791,7 @@ void RILUK<MatrixType>::compute ()
       NumIn = MaxNumEntries;
       L_->getLocalRowCopy (local_row, InI (), InV (), NumL);
 
-      InV[NumL] = DV[i]; // Put in diagonal
+      InV[NumL] = DV(i); // Put in diagonal
       InI[NumL] = local_row;
 
       U_->getLocalRowCopy (local_row, InI (NumL+1, MaxNumEntries-NumL-1),
@@ -812,7 +809,7 @@ void RILUK<MatrixType>::compute ()
         local_ordinal_type j = InI[jj];
         scalar_type multiplier = InV[jj]; // current_mults++;
         
-        InV[jj] *= DV[j];
+        InV[jj] *= static_cast<scalar_type>(DV(j));
         
         U_->getLocalRowView(j, UUI, UUV); // View of row above
         NumUU = UUI.size();
@@ -848,26 +845,26 @@ void RILUK<MatrixType>::compute ()
         L_->replaceLocalValues (local_row, InI (0, NumL), InV (0, NumL));
       }
 
-      DV[i] = InV[NumL]; // Extract Diagonal value
+      DV(i) = InV[NumL]; // Extract Diagonal value
 
       if (RelaxValue_ != STM::zero ()) {
-        DV[i] += RelaxValue_*diagmod; // Add off diagonal modifications
+        DV(i) += RelaxValue_*diagmod; // Add off diagonal modifications
       }
 
-      if (STS::magnitude (DV[i]) > STS::magnitude (MaxDiagonalValue)) {
-        if (STS::real (DV[i]) < STM::zero ()) {
-          DV[i] = -MinDiagonalValue;
+      if (STS::magnitude (DV(i)) > STS::magnitude (MaxDiagonalValue)) {
+        if (STS::real (DV(i)) < STM::zero ()) {
+          DV(i) = -MinDiagonalValue;
         }
         else {
-          DV[i] = MinDiagonalValue;
+          DV(i) = MinDiagonalValue;
         }
       }
       else {
-        DV[i] = STS::one () / DV[i]; // Invert diagonal value
+        DV(i) = static_cast<impl_scalar_type>(STS::one ()) / DV(i); // Invert diagonal value
       }
 
       for (size_t j = 0; j < NumU; ++j) {
-        InV[NumL+1+j] *= DV[i]; // Scale U by inverse of diagonal
+        InV[NumL+1+j] *= static_cast<scalar_type>(DV(i)); // Scale U by inverse of diagonal
       }
 
       if (NumU) {
@@ -898,6 +895,37 @@ void RILUK<MatrixType>::compute ()
     U_solver_->compute ();
   }
   else {
+    {//Make sure values in A is picked up even in case of pattern reuse
+      RCP<const crs_matrix_type> A_local_crs =
+        rcp_dynamic_cast<const crs_matrix_type> (A_local_);
+      if (A_local_crs.is_null ()) {
+        local_ordinal_type numRows = A_local_->getNodeNumRows();
+        Array<size_t> entriesPerRow(numRows);
+        for(local_ordinal_type i = 0; i < numRows; i++) {
+          entriesPerRow[i] = A_local_->getNumEntriesInLocalRow(i);
+        }
+        RCP<crs_matrix_type> A_local_crs_nc =
+          rcp (new crs_matrix_type (A_local_->getRowMap (),
+                                    A_local_->getColMap (),
+                                    entriesPerRow()));
+        // copy entries into A_local_crs
+        Teuchos::Array<local_ordinal_type> indices(A_local_->getNodeMaxNumRowEntries());
+        Teuchos::Array<scalar_type> values(A_local_->getNodeMaxNumRowEntries());
+        for(local_ordinal_type i = 0; i < numRows; i++) {
+          size_t numEntries = 0;
+          A_local_->getLocalRowCopy(i, indices(), values(), numEntries);
+          ArrayView<const local_ordinal_type> indicesInsert(indices.data(), numEntries);
+          ArrayView<const scalar_type> valuesInsert(values.data(), numEntries);
+          A_local_crs_nc->insertLocalValues(i, indicesInsert, valuesInsert);
+        }
+        A_local_crs_nc->fillComplete (A_local_->getDomainMap (), A_local_->getRangeMap ());
+        A_local_crs = rcp_const_cast<const crs_matrix_type> (A_local_crs_nc);
+      }
+      A_local_rowmap_  = A_local_crs->getLocalMatrix().graph.row_map;
+      A_local_entries_ = A_local_crs->getLocalMatrix().graph.entries;
+      A_local_values_  = A_local_crs->getLocalValuesView();
+    }
+
     L_->resumeFill ();
     U_->resumeFill ();
 

@@ -49,7 +49,8 @@ namespace Test {
     KOKKOS_INLINE_FUNCTION
     void operator() (const typename Kokkos::TeamPolicy<ExecutionSpace>::member_type& team) const {
 // GNU COMPILER BUG WORKAROUND
-#if defined(KOKKOS_COMPILER_GNU) && !defined(__CUDA_ARCH__)
+#if defined(KOKKOS_COMPILER_GNU) && !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
+
       int i = team.league_rank();
 #else
       const int i = team.league_rank();
@@ -126,8 +127,6 @@ namespace Test {
     ScalarA alpha_trmm = ScalarA(1)/alpha;
     ScalarA beta       = ScalarA(0);
 
-    Kokkos::fence();
- 
     if ((uplo[0]=='L')||(uplo[0]=='l')) {
       for (int i = 0; i < K-1; i++)
         for (int j = i+1; j < K; j++)

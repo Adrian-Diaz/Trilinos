@@ -616,7 +616,7 @@ public:
   }
 
   // Inverse scaling by a block-diagonal matrix
-  static void inverseScaleBlockDiagonal(const Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>  & blockDiagonal,
+  static void inverseScaleBlockDiagonal(Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node>  & blockDiagonal,
 					bool doTranspose,
 					Xpetra::MultiVector<Scalar, LocalOrdinal, GlobalOrdinal, Node> & toBeScaled) {
 
@@ -628,7 +628,7 @@ public:
 #endif // HAVE_XPETRA_EPETRA
       } else if(lib == Xpetra::UseTpetra) {
 #ifdef HAVE_XPETRA_TPETRA
-        const Tpetra::MultiVector<SC,LO,GO,NO> & Dt = Xpetra::toTpetra(blockDiagonal);
+        Tpetra::MultiVector<SC,LO,GO,NO> & Dt = Xpetra::toTpetra(blockDiagonal);
         Tpetra::MultiVector<SC,LO,GO,NO> &       St = Xpetra::toTpetra(toBeScaled);
         Tpetra::Details::inverseScaleBlockDiagonal(Dt,doTranspose,St);
 #endif // HAVE_XPETRA_TPETRA
@@ -653,6 +653,23 @@ public:
                                "Local parts of row and column map do not match!");
   }
 
+  /*!
+    \@brief Convert matrix to strided row and column maps
+
+    @param matrix Matrix to be converted
+    @param rangeStridingInfo Striding information for row/range map
+    @param domainStridingInfo Striding information for column/domain map
+  */
+  static void convertMatrixToStridedMaps(
+      Teuchos::RCP<Xpetra::Matrix<Scalar, LocalOrdinal, GlobalOrdinal, Node>> matrix,
+      std::vector<size_t>& rangeStridingInfo, std::vector<size_t>& domainStridingInfo)
+  {
+    RCP<const StridedMap> stridedRowMap = StridedMapFactory::Build(matrix->getRowMap(), rangeStridingInfo, -1, 0);
+    RCP<const StridedMap> stridedColMap = StridedMapFactory::Build(matrix->getColMap(), domainStridingInfo, -1, 0);
+
+    if (matrix->IsView("stridedMaps") == true) matrix->RemoveView("stridedMaps");
+    matrix->CreateView("stridedMaps", stridedRowMap, stridedColMap);
+  }
 
 };
 

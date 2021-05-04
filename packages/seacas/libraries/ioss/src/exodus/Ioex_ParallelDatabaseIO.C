@@ -5,7 +5,7 @@
 //    strange cases
 //
 //
-// Copyright(C) 1999-2020 National Technology & Engineering Solutions
+// Copyright(C) 1999-2021 National Technology & Engineering Solutions
 // of Sandia, LLC (NTESS).  Under the terms of Contract DE-NA0003525 with
 // NTESS, the U.S. Government retains certain rights in this software.
 //
@@ -29,7 +29,6 @@
 #include <numeric>
 #include <set>
 #include <string>
-#include <sys/select.h>
 #include <tokenize.h>
 #include <unistd.h>
 #include <utility>
@@ -333,26 +332,22 @@ namespace Ioex {
     }
 
     if (!is_input()) {
-      // Check whether appending to existing file...
+      // Check whether appending to or modifying existing file...
       if (open_create_behavior() == Ioss::DB_APPEND ||
-          open_create_behavior() == Ioss::DB_APPEND_GROUP) {
+          open_create_behavior() == Ioss::DB_APPEND_GROUP ||
+          open_create_behavior() == Ioss::DB_MODIFY) {
         // Append to file if it already exists -- See if the file exists.
         Ioss::FileInfo file = Ioss::FileInfo(get_filename());
         fileExists          = file.exists();
-        if (fileExists) {
-          std::ostringstream errmsg;
-          fmt::print(
-              errmsg,
-              "ERROR: Cannot reliably append to an existing database in parallel single-file "
-              "output mode. File '{}'",
-              get_filename());
-          IOSS_ERROR(errmsg);
+        if (fileExists && myProcessor == 0) {
+          fmt::print(Ioss::WARNING(),
+                     "Appending to existing database in parallel single-file "
+                     "output mode is a new capability; please check results carefully. File '{}'",
+                     get_filename());
         }
       }
     }
   }
-
-  ParallelDatabaseIO::~ParallelDatabaseIO() = default;
 
   void ParallelDatabaseIO::release_memory__()
   {
@@ -364,6 +359,8 @@ namespace Ioex {
     Ioss::Utils::clear(nodeOwningProcessor);
     Ioss::Utils::clear(nodeGlobalImplicitMap);
     Ioss::Utils::clear(elemGlobalImplicitMap);
+    nodeGlobalImplicitMapDefined = false;
+    elemGlobalImplicitMapDefined = false;
     nodesetOwnedNodes.clear();
     try {
       decomp.reset();
@@ -451,12 +448,14 @@ namespace Ioex {
     // create an ifdef'd version of the fix which is only applied to the
     // buggy mpiio code.  Therefore, we always do chdir call.  Maybe in several
     // years, we can remove this code and everything will work...
+
+#ifndef _WIN32
     Ioss::FileInfo file(filename);
     std::string    path = file.pathname();
     filename            = file.tailname();
-
-    char *current_cwd = getcwd(nullptr, 0);
+    char *current_cwd   = getcwd(nullptr, 0);
     chdir(path.c_str());
+#endif
 
     bool do_timer = false;
     Ioss::Utils::check_set_bool_property(properties, "IOSS_TIME_FILE_OPEN_CLOSE", do_timer);
@@ -474,8 +473,10 @@ namespace Ioex {
       }
     }
 
+#ifndef _WIN32
     chdir(current_cwd);
     std::free(current_cwd);
+#endif
 
     bool is_ok = check_valid_file_ptr(write_message, error_msg, bad_count, abort_if_error);
 
@@ -543,12 +544,13 @@ namespace Ioex {
 
     std::string filename = get_dwname();
 
+#ifndef _WIN32
     Ioss::FileInfo file(filename);
     std::string    path = file.pathname();
     filename            = file.tailname();
-
-    char *current_cwd = getcwd(nullptr, 0);
+    char *current_cwd   = getcwd(nullptr, 0);
     chdir(path.c_str());
+#endif
 
     bool do_timer = false;
     Ioss::Utils::check_set_bool_property(properties, "IOSS_TIME_FILE_OPEN_CLOSE", do_timer);
@@ -586,8 +588,10 @@ namespace Ioex {
       }
     }
 
+#ifndef _WIN32
     chdir(current_cwd);
     std::free(current_cwd);
+#endif
 
     bool is_ok = check_valid_file_ptr(write_message, error_msg, bad_count, abort_if_error);
 
@@ -595,6 +599,36 @@ namespace Ioex {
       ex_set_max_name_length(m_exodusFilePtr, maximumNameLength);
 
       // Check properties handled post-create/open...
+      if (properties.exists("COMPRESSION_METHOD")) {
+        auto method                    = properties.get("COMPRESSION_METHOD").get_string();
+        method                         = Ioss::Utils::lowercase(method);
+        ex_compression_type exo_method = EX_COMPRESS_ZLIB;
+        if (method == "zlib" || method == "libz" || method == "gzip") {
+          exo_method = EX_COMPRESS_ZLIB;
+        }
+        else if (method == "szip") {
+#if !defined(NC_HAS_SZIP_WRITE)
+#define NC_HAS_SZIP_WRITE 0
+#endif
+#if NC_HAS_SZIP_WRITE
+          exo_method = EX_COMPRESS_SZIP;
+#else
+          if (myProcessor == 0) {
+            fmt::print(Ioss::WARNING(), "The NetCDF library does not have SZip compression enabled."
+                                        " 'zlib' will be used instead.\n\n");
+          }
+#endif
+        }
+        else {
+          if (myProcessor == 0) {
+            fmt::print(Ioss::WARNING(),
+                       "Unrecognized compression method specified: '{}'."
+                       " 'zlib' will be used instead.\n\n",
+                       method);
+          }
+        }
+        ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_TYPE, exo_method);
+      }
       if (properties.exists("COMPRESSION_LEVEL")) {
         int comp_level = properties.get("COMPRESSION_LEVEL").get_int();
         ex_set_option(m_exodusFilePtr, EX_OPT_COMPRESSION_LEVEL, comp_level);
@@ -638,6 +672,19 @@ namespace Ioex {
   {
     int exoid = get_file_pointer(); // get_file_pointer() must be called first.
 
+    // APPENDING:
+    // If parallel (single file, not fpp), we have assumptions
+    // that the writing process (ranks, mesh, decomp, vars) is the
+    // same for the original run that created this database and
+    // for this run which is appending to the database so the
+    // defining of the output database should be the same except
+    // we don't write anything since it is already there.  We do
+    // need the number of steps though...
+    if (open_create_behavior() == Ioss::DB_APPEND) {
+      get_step_times__();
+      return;
+    }
+
     if (int_byte_size_api() == 8) {
       decomp = std::unique_ptr<DecompositionDataBase>(
           new DecompositionData<int64_t>(properties, util().communicator()));
@@ -679,6 +726,11 @@ namespace Ioex {
     handle_groups();
 
     add_region_fields();
+
+    if (!is_input() && open_create_behavior() == Ioss::DB_APPEND) {
+      get_map(EX_NODE_BLOCK);
+      get_map(EX_ELEM_BLOCK);
+    }
   }
 
   void ParallelDatabaseIO::read_region()
@@ -2303,11 +2355,14 @@ int64_t ParallelDatabaseIO::get_field_internal(const Ioss::ElementSet *ns, const
 }
 
 int64_t ParallelDatabaseIO::get_field_internal(const Ioss::SideSet *fs, const Ioss::Field &field,
-                                               void * /* data */, size_t data_size) const
+                                               void *data, size_t data_size) const
 {
   size_t num_to_get = field.verify(data_size);
   if (field.get_name() == "ids") {
     // Do nothing, just handles an idiosyncrasy of the GroupingEntity
+    // However, make sure that the caller gets a consistent answer, i.e., don't leave the buffer
+    // full of junk
+    memset(data, 0x00, data_size);
   }
   else {
     num_to_get = Ioss::Utils::field_warning(fs, field, "input");
@@ -3950,6 +4005,7 @@ int64_t ParallelDatabaseIO::handle_element_ids(const Ioss::ElementBlock *eb, voi
     for (size_t i = 0; i < count; i++) {
       elemGlobalImplicitMap[eb_offset + i] = offset + i + 1;
     }
+    elemGlobalImplicitMapDefined = true;
   }
 
   elemMap.set_size(elementCount);
@@ -4542,10 +4598,10 @@ int64_t ParallelDatabaseIO::put_field_internal(const Ioss::SideBlock *fb, const 
   return num_to_get;
 }
 
-void ParallelDatabaseIO::write_meta_data()
+void ParallelDatabaseIO::write_meta_data(Ioss::IfDatabaseExistsBehavior behavior)
 {
   Ioss::Region *region = get_region();
-  common_write_meta_data();
+  common_write_meta_data(behavior);
 
   char the_title[max_line_length + 1];
 
@@ -4559,16 +4615,16 @@ void ParallelDatabaseIO::write_meta_data()
   }
 
   bool       file_per_processor = false;
-  Ioex::Mesh mesh(spatialDimension, the_title, file_per_processor);
-  {
+  Ioex::Mesh mesh(spatialDimension, the_title, util(), file_per_processor);
+  mesh.populate(region);
+
+  if (behavior != Ioss::DB_APPEND && behavior != Ioss::DB_MODIFY) {
     if (!properties.exists("OMIT_QA_RECORDS")) {
       put_qa();
     }
     if (!properties.exists("OMIT_INFO_RECORDS")) {
       put_info();
     }
-
-    mesh.populate(region);
 
     // Write the metadata to the exodusII file...
     Ioex::Internals data(get_file_pointer(), maximumNameLength, util());
@@ -4587,10 +4643,10 @@ void ParallelDatabaseIO::write_meta_data()
   // processor begins...
   update_processor_offset_property(region, mesh);
 
-  // Output node map...
-  output_node_map();
-
-  output_other_meta_data();
+  if (behavior != Ioss::DB_APPEND && behavior != Ioss::DB_MODIFY) {
+    output_node_map();
+    output_other_meta_data();
+  }
 }
 
 void ParallelDatabaseIO::create_implicit_global_map() const
@@ -4609,6 +4665,7 @@ void ParallelDatabaseIO::create_implicit_global_map() const
   compose.create_implicit_global_map(nodeOwningProcessor, nodeGlobalImplicitMap, nodeMap,
                                      &locally_owned_count, &processor_offset);
 
+  nodeGlobalImplicitMapDefined                = true;
   const Ioss::NodeBlockContainer &node_blocks = get_region()->get_node_blocks();
   if (!node_blocks[0]->property_exists("locally_owned_count")) {
     node_blocks[0]->property_add(Ioss::Property("locally_owned_count", locally_owned_count));
@@ -4639,7 +4696,7 @@ void ParallelDatabaseIO::output_node_map() const
     size_t locally_owned_count = node_blocks[0]->get_property("locally_owned_count").get_int();
 
     int ierr = 0;
-    if (!nodeMap.map().empty() && !nodeGlobalImplicitMap.empty()) {
+    if (nodeMap.defined() && nodeGlobalImplicitMapDefined) {
 
       if (int_byte_size_api() == 4) {
         std::vector<int> file_ids;
@@ -4656,12 +4713,6 @@ void ParallelDatabaseIO::output_node_map() const
         filter_owned_nodes(nodeOwningProcessor, myProcessor, &nodeMap.map()[1], file_ids);
         ierr = ex_put_partial_id_map(get_file_pointer(), EX_NODE_MAP, processor_offset + 1,
                                      locally_owned_count, file_ids.data());
-      }
-    }
-    else {
-      if (locally_owned_count == 0) {
-	ierr = ex_put_partial_id_map(get_file_pointer(), EX_NODE_MAP, processor_offset + 1,
-				     locally_owned_count, nullptr);
       }
     }
     if (ierr < 0) {

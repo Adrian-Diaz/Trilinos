@@ -10,7 +10,8 @@
 #define Tempus_IntegratorForwardSensitivity_decl_hpp
 
 // Tempus
-#include "Tempus_IntegratorBasic.hpp"
+#include "Tempus_config.hpp"
+#include "Tempus_IntegratorBasicOld.hpp"
 #include "Tempus_SensitivityModelEvaluatorBase.hpp"
 #include "Tempus_StepperStaggeredForwardSensitivity.hpp"
 
@@ -36,14 +37,16 @@ namespace Tempus {
  * </ul>
  *
  * Note that this integrator implements all of the same functions as the
- * IntegratorBasic, but is not derived from IntegratorBasic.  It also provides
+ * IntegratorBasicOld, but is not derived from IntegratorBasicOld.  It also provides
  * functions for setting the sensitivity initial conditions and extracting the
  * sensitivity at the final time.  Also the vectors stored in the solution
  * history store product vectors of the state and sensitivities using
  * Thyra;:DefaultMultiVectorProductVector.
  */
 template<class Scalar>
-class IntegratorForwardSensitivity : virtual public Tempus::Integrator<Scalar>
+class IntegratorForwardSensitivity
+  : virtual public Tempus::Integrator<Scalar>,
+    virtual public Teuchos::ParameterListAcceptor
 {
 public:
 
@@ -236,28 +239,28 @@ protected:
   Teuchos::RCP<Thyra::ModelEvaluator<Scalar> > model_;
   Teuchos::RCP<SensitivityModelEvaluatorBase<Scalar> > sens_model_;
   Teuchos::RCP<StepperStaggeredForwardSensitivity<Scalar> > sens_stepper_;
-  Teuchos::RCP<IntegratorBasic<Scalar> > integrator_;
+  Teuchos::RCP<IntegratorBasicOld<Scalar> > integrator_;
   Teuchos::RCP<Teuchos::ParameterList> tempus_pl_;
   Teuchos::RCP<Teuchos::ParameterList> sens_pl_;
   Teuchos::RCP<Teuchos::ParameterList> stepper_pl_;
   bool use_combined_method_;
 };
 
-/// Non-member constructor
+/// Nonmember constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorForwardSensitivity<Scalar> >
 integratorForwardSensitivity(
   Teuchos::RCP<Teuchos::ParameterList>                pList,
   const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >& model);
 
-/// Non-member constructor
+/// Nonmember constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorForwardSensitivity<Scalar> >
 integratorForwardSensitivity(
   const Teuchos::RCP<Thyra::ModelEvaluator<Scalar> >& model,
   std::string stepperType);
 
-/// Non-member constructor
+/// Nonmember constructor
 template<class Scalar>
 Teuchos::RCP<IntegratorForwardSensitivity<Scalar> >
 integratorForwardSensitivity();
